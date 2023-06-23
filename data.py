@@ -1,16 +1,12 @@
 import pandas as pd
-from os.path import join
+from os.path import join, abspath
 import numpy as np
 from torch.utils.data import DataLoader
 from sklearn.preprocessing import StandardScaler
 
+from constants import H_LIST, T_LIST, VAL_SIZE, TEST_SIZE
 
-DATA_DIR = 'data'
-H_list = [24, 48, 72, 96, 120, 144, 168, 192, 336, 504, 672, 720]
-T_list = [96, 192, 336, 720]
-
-VAL_SIZE = 0.25
-TEST_SIZE = 0.2
+DATA_DIR = abspath('./data')
 
 
 def read_data(path: str) -> pd.DataFrame:
@@ -122,7 +118,7 @@ def train_val_test_split(X, y):
     return train_X, val_X, test_X, train_y, val_y, test_y
 
 
-def prepare_3d_dataloaders(batch_size: int = 8, seq_len: int = H_list[0], pred_len: int = T_list[0], n_channels: int = None):
+def prepare_3d_dataloaders(batch_size: int = 8, seq_len: int = H_LIST[0], pred_len: int = T_LIST[0], n_channels: int = None):
     if n_channels is None:
         raise "n_channels must be number"
     print('preparing data3d...')

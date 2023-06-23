@@ -1,27 +1,79 @@
 import lightning as L
-from lightning.pytorch.callbacks import TQDMProgressBar
-from lightning.pytorch.callbacks.early_stopping import EarlyStopping
 from lightning.pytorch.loggers import TensorBoardLogger
+from ray.tune.integration.pytorch_lightning import TuneReportCallback
+from ray import tune
+import os
 
-from data import H_list, T_list, prepare_3d_dataloaders
-from models import NLinear
-from utils import Config
+from data import prepare_3d_dataloaders
+from models.linear import NLinear
+from constants import Config, H_LIST, T_LIST
 
-seq_len = H_list[len(H_list)//2]
-pred_len = T_list[len(T_list)//2]
+
+class _TuneReportCallback(TuneReportCallback, L.Callback):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
+
+seq_len = H_LIST[len(H_LIST)//2]
+pred_len = T_LIST[len(T_LIST)//2]
 
 n_channels = 3
+max_epochs = 20
 
-train_loader, val_loader, test_loader, scaler = prepare_3d_dataloaders(seq_len=seq_len, pred_len=pred_len,n_channels=n_channels)
+tensorboard_dir = os.path.abspath('./tuning')
 
-nlinear = NLinear(Config(seq_len=seq_len, pred_len=pred_len, n_channels=n_channels))
-nlinear.cuda()
+def tune_NLinear():
 
-early_stop = EarlyStopping(monitor="val_loss", mode="min", patience=5)
-logger = TensorBoardLogger(save_dir='tuning', name='NLinear')
-trainer = L.Trainer(
-    max_epochs=100,
-    callbacks=[TQDMProgressBar(refresh_rate=10)],
-    logger=logger
-)
-trainer.fit(nlinear, train_loader, val_loader)
+    def train_nlinear(config):
+
+        batch_size = config['batch_size']
+        lr = config['lr']
+
+        train_loader, val_loader, test_loader, scaler = prepare_3d_dataloaders(batch_size=batch_size, seq_len=seq_len, pred_len=pred_len,n_channels=n_channels)
+
+        nlinear = NLinear(Config(seq_len=seq_len, pred_len=pred_len, n_channels=n_channels, lr=lr))
+        nlinear.cuda()
+
+        logger = TensorBoardLogger(save_dir=tensorboard_dir, name='NLinear')
+
+        metrics = {"val_loss": "val_loss", 'train_loss': 'train_loss'}
+        tune_cb = _TuneReportCallback(metrics, on="validation_end")
+
+        trainer = L.Trainer(
+            max_epochs=max_epochs,
+            callbacks=[tune_cb],
+            logger=logger,
+            enable_progress_bar=False
+        )
+        trainer.fit(nlinear, train_loader, val_loader)
+
+    num_samples = 15
+
+    tune_config = {
+        "lr": tune.loguniform(1e-4, 1e-1),
+        "batch_size": tune.choice([8, 16, 32, 64]),
+    }
+
+    trainable = tune.with_parameters(
+        train_nlinear
+    )
+
+    analysis = tune.run(
+        trainable,
+        resources_per_trial={
+            "cpu": 1,
+            "gpu": 1
+        },
+        metric="val_loss",
+        mode="min",
+        config=tune_config,
+        num_samples=num_samples,
+        name="tune_linear"
+    )
+
+    print(analysis)
+
+
+if __name__ == '__main__':
+
+    tune_NLinear()

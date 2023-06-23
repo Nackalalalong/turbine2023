@@ -5,43 +5,22 @@ import torch.nn.functional as F
 import lightning as L
 from torch.optim.lr_scheduler import StepLR
 
-from utils import Config
+from constants import Config
 
 
-DEVICE = 'cuda'
+class LinearTrainBehavior(L.LightningModule):
 
-
-class NLinear(L.LightningModule):
-    """
-    adapts from https://github.com/cure-lab/LTSF-Linear/blob/main/models/NLinear.py
-    """
     def __init__(self, config: Config):
-        super(NLinear, self).__init__()
+        super(LinearTrainBehavior, self).__init__()
 
         self.seq_len = config.seq_len
         self.pred_len = config.pred_len
         self.n_channels = config.n_channels
-
-        self.linear = nn.ModuleList()
-        for _ in range(self.n_channels):
-            self.linear.append(nn.Linear(self.seq_len, self.pred_len, dtype=torch.float64))
+        self.lr = config.lr 
 
         self.validation_step_losses = []
         self.training_step_losses = []
 
-    def forward(self, x):
-        # x: [Batch, Input length, Channel]
-        seq_last = x[:,-1:,:].detach()
-        x = x - seq_last
-
-        output = torch.zeros([x.size(0),self.pred_len,x.size(2)],dtype=x.dtype).to(x.device)
-        for i in range(self.n_channels):
-            output[:,:,i] = self.linear[i](x[:,:,i])
-        x = output
-
-        x = x + seq_last
-        return x # [Batch, Output length, Channel]
-    
     def extract_batch(self, batch):
         x, y = batch
         x = x.cuda()
@@ -80,6 +59,31 @@ class NLinear(L.LightningModule):
         self.validation_step_losses.clear()
 
     def configure_optimizers(self):
-        optimizer = torch.optim.Adam(self.parameters(), lr=5e-3)
+        optimizer = torch.optim.Adam(self.parameters(), lr=self.lr)
         scheduler = StepLR(optimizer, step_size=5, gamma=0.8)
         return {'optimizer': optimizer, 'lr_scheduler': scheduler }
+
+
+class NLinear(LinearTrainBehavior):
+    """
+    adapts from https://github.com/cure-lab/LTSF-Linear/blob/main/models/NLinear.py
+    """
+    def __init__(self, config: Config):
+        super(NLinear, self).__init__(config)
+
+        self.linear = nn.ModuleList()
+        for _ in range(self.n_channels):
+            self.linear.append(nn.Linear(self.seq_len, self.pred_len, dtype=torch.float64))
+
+    def forward(self, x):
+        # x: [Batch, Input length, Channel]
+        seq_last = x[:,-1:,:].detach()
+        x = x - seq_last
+
+        output = torch.zeros([x.size(0),self.pred_len,x.size(2)],dtype=x.dtype).to(x.device)
+        for i in range(self.n_channels):
+            output[:,:,i] = self.linear[i](x[:,:,i])
+        x = output
+
+        x = x + seq_last
+        return x # [Batch, Output length, Channel]
