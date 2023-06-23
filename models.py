@@ -3,6 +3,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import lightning as L
+from torch.optim.lr_scheduler import StepLR
 
 from utils import Config
 
@@ -53,27 +54,32 @@ class NLinear(L.LightningModule):
 
         y_hat = self.forward(x)
         loss = F.mse_loss(y_hat, y)
-        self.training_step_losses.append(loss)
+        self.training_step_losses.append(loss.item())
         self.log('train_loss_step', loss, prog_bar=True)
-        
+
         return loss
     
     def on_train_epoch_end(self):
-        avg_loss = torch.stack(self.training_step_losses).mean()
+        losses = self.training_step_losses
+        avg_loss = sum(losses) / len(losses)
         self.logger.experiment.add_scalars('loss', {'train': avg_loss}, self.current_epoch) 
+        self.log('train_loss', avg_loss, prog_bar=True, logger=False)
         self.training_step_losses.clear()
     
     def validation_step(self, batch, batch_idx):
         x,y = self.extract_batch(batch)
         logits = self.forward(x)
         loss = F.mse_loss(logits, y)
-        self.validation_step_losses.append(loss)
+        self.validation_step_losses.append(loss.item())
 
     def on_validation_epoch_end(self):
-        avg_loss = torch.stack(self.validation_step_losses).mean()
+        losses = self.validation_step_losses
+        avg_loss = sum(losses) / len(losses)
         self.logger.experiment.add_scalars('loss', {'val': avg_loss}, self.current_epoch) 
+        self.log('val_loss', avg_loss, prog_bar=True, logger=False)
         self.validation_step_losses.clear()
 
     def configure_optimizers(self):
-        optimizer = torch.optim.Adam(self.parameters(), lr=1e-3)
-        return optimizer
+        optimizer = torch.optim.Adam(self.parameters(), lr=5e-3)
+        scheduler = StepLR(optimizer, step_size=5, gamma=0.8)
+        return {'optimizer': optimizer, 'lr_scheduler': scheduler }

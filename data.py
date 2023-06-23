@@ -2,11 +2,15 @@ import pandas as pd
 from os.path import join
 import numpy as np
 from torch.utils.data import DataLoader
+from sklearn.preprocessing import StandardScaler
 
 
 DATA_DIR = 'data'
-L_list = [24, 48, 72, 96, 120, 144, 168, 192, 336, 504, 672, 720]
+H_list = [24, 48, 72, 96, 120, 144, 168, 192, 336, 504, 672, 720]
 T_list = [96, 192, 336, 720]
+
+VAL_SIZE = 0.25
+TEST_SIZE = 0.2
 
 
 def read_data(path: str) -> pd.DataFrame:
@@ -58,8 +62,19 @@ def read_3d2d1d() -> pd.DataFrame:
 
     return df
 
-def make_X_y(df: pd.DataFrame, seq_len: int, pred_len: int):
-    values = df.values
+def scale_data(values: np.array):
+    assert len(values.shape) == 2
+
+    cutoff = int(len(values) * (1 - TEST_SIZE))
+    cutoff = int(cutoff * (1 - VAL_SIZE))
+    assert abs(cutoff/len(values) - (1-TEST_SIZE)*(1-VAL_SIZE)) < 1e-3
+
+    scaler = StandardScaler()
+    scaler.fit(values[:cutoff,:])
+
+    return scaler.transform(values), scaler
+
+def make_X_y(values: np.array, seq_len: int, pred_len: int):
     assert len(values.shape) == 2
 
     ys = []
@@ -86,39 +101,50 @@ def make_X_y(df: pd.DataFrame, seq_len: int, pred_len: int):
         i += 1
 
     assert len(Xs) == len(ys)
-    assert len(ys) == len(df) - pred_len - seq_len + 1
+    assert len(ys) == len(values) - pred_len - seq_len + 1
 
     return np.array(Xs), np.array(ys)
 
 def train_test_split(X: np.array, y: np.array, test_size: int):
     assert len(X) == len(y)
 
-    cutoff = int(len(X) * 1 - test_size)
+    cutoff = int(len(X) * (1 - test_size))
+    assert abs((len(X) - cutoff)/len(X) - test_size) < 1e-3
 
     return X[:cutoff, :], X[cutoff:,:], y[:cutoff,:], y[cutoff:,]
 
-def train_val_test_split(X, y, val_size=0.25, test_size=0.2):
+def train_val_test_split(X, y):
     assert len(X) == len(y)
 
-    train_X, test_X, train_y, test_y = train_test_split(X, y, test_size=test_size)
-    train_X, val_X, train_y, val_y = train_test_split(train_X, train_y, test_size=val_size)
+    train_X, test_X, train_y, test_y = train_test_split(X, y, VAL_SIZE)
+    train_X, val_X, train_y, val_y = train_test_split(train_X, train_y, TEST_SIZE)
 
     return train_X, val_X, test_X, train_y, val_y, test_y
 
 
-def prepare_3d_dataloaders(batch_size: int = 8, seq_len: int = L_list[0], pred_len: int = T_list[0]):
+def prepare_3d_dataloaders(batch_size: int = 8, seq_len: int = H_list[0], pred_len: int = T_list[0], n_channels: int = None):
+    if n_channels is None:
+        raise "n_channels must be number"
     print('preparing data3d...')
     df = read_3d()
-    X, y = make_X_y(df, seq_len, pred_len)
+    values, scaler = scale_data(df.values)
+    X, y = make_X_y(values, seq_len, pred_len)
 
     train_X, val_X, test_X, train_y, val_y, test_y = train_val_test_split(X, y)
+
+    assert n_channels == train_X.shape[2]
+    assert n_channels == val_X.shape[2]
+    assert n_channels == test_X.shape[2]
+    assert n_channels == train_y.shape[2]
+    assert n_channels == val_y.shape[2]
+    assert n_channels == test_y.shape[2]
 
     train_loader = DataLoader(list(zip(train_X, train_y)), shuffle=False, batch_size=batch_size)
     val_loader = DataLoader(list(zip(val_X, val_y)), shuffle=False, batch_size=batch_size)
     test_loader = DataLoader(list(zip(test_X, test_y)), shuffle=False, batch_size=batch_size)
     print('done preparing data3d')
 
-    return train_loader, val_loader, test_loader
+    return train_loader, val_loader, test_loader, scaler
 
 if __name__ == '__main__':
     df = read_3d2d()
