@@ -1,0 +1,3 @@
+- linear model for baseline
+- lstm
+- transformer
