@@ -16,5 +16,5 @@ TEST_SIZE = 0.2
 
 # from tuning
 class NLinearTuneResult:
-    best_lr = 0.00035259080244388544
-    best_batchsize = 64
+    best_lr = 0.00017278732761833284
+    best_batchsize = 32
