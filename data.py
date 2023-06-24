@@ -4,7 +4,7 @@ import numpy as np
 from torch.utils.data import DataLoader
 from sklearn.preprocessing import StandardScaler
 
-from constants import H_LIST, T_LIST, VAL_SIZE, TEST_SIZE
+from constants import VAL_SIZE, TEST_SIZE
 
 DATA_DIR = abspath('./data')
 
@@ -118,11 +118,9 @@ def train_val_test_split(X, y):
     return train_X, val_X, test_X, train_y, val_y, test_y
 
 
-def prepare_3d_dataloaders(batch_size: int = 8, seq_len: int = H_LIST[0], pred_len: int = T_LIST[0], n_channels: int = None):
-    if n_channels is None:
-        raise "n_channels must be number"
-    print('preparing data3d...')
-    df = read_3d()
+def _prepare_dataloaders(df: pd.DataFrame, batch_size: int, seq_len: int, pred_len: int, n_channels: int):
+    assert len(df.values.shape) == 2
+
     values, scaler = scale_data(df.values)
     X, y = make_X_y(values, seq_len, pred_len)
 
@@ -138,17 +136,35 @@ def prepare_3d_dataloaders(batch_size: int = 8, seq_len: int = H_LIST[0], pred_l
     train_loader = DataLoader(list(zip(train_X, train_y)), shuffle=False, batch_size=batch_size)
     val_loader = DataLoader(list(zip(val_X, val_y)), shuffle=False, batch_size=batch_size)
     test_loader = DataLoader(list(zip(test_X, test_y)), shuffle=False, batch_size=batch_size)
-    print('done preparing data3d')
 
     return train_loader, val_loader, test_loader, scaler
 
+
+def prepare_dataloaders(data: str, batch_size: int, seq_len: int, pred_len: int, n_channels: int):
+    if n_channels is None:
+        raise "n_channels must be number"
+    
+    if data == '3d':
+        df = read_3d()
+    elif data == '2d':
+        df = read_2d()
+    elif data == '1d':
+        df = read_1d()
+    else:
+        raise 'invalid data'
+    
+    return _prepare_dataloaders(df, batch_size=batch_size, seq_len=seq_len, pred_len=pred_len, n_channels=n_channels)
+
+
 if __name__ == '__main__':
+    # tests
+
     df = read_3d2d()
 
     df = read_3d2d1d()
 
     df = pd.DataFrame({'a': [1,2,3,4,5], 'b': [6,7,8,9,10]})
-    X, y = make_X_y(df, 2, 2)
+    X, y = make_X_y(df.values, 2, 2)
     assert np.array_equal(X, np.array([
         [[ 3, 8],
          [ 4, 9]],
@@ -164,4 +180,6 @@ if __name__ == '__main__':
     ]))
 
 
-    prepare_3d_dataloaders()
+    prepare_dataloaders('1d', 8, 8, 8, 3)
+    prepare_dataloaders('2d', 8, 8, 8, 3)
+    prepare_dataloaders('3d', 8, 8, 8, 3)

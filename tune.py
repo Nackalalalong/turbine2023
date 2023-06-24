@@ -5,7 +5,7 @@ from ray import tune
 import os
 import typer
 
-from data import prepare_3d_dataloaders
+from data import prepare_dataloaders
 from models.linear import NLinear, DLinear
 from constants import Config, H_LIST, T_LIST
 
@@ -33,7 +33,7 @@ def tune_NLinear():
         batch_size = config['batch_size']
         lr = config['lr']
 
-        train_loader, val_loader, test_loader, scaler = prepare_3d_dataloaders(batch_size=batch_size, seq_len=seq_len, pred_len=pred_len,n_channels=n_channels)
+        train_loader, val_loader, test_loader, scaler = prepare_dataloaders('3d', batch_size=batch_size, seq_len=seq_len, pred_len=pred_len,n_channels=n_channels)
 
         nlinear = NLinear(Config(seq_len=seq_len, pred_len=pred_len, n_channels=n_channels, lr=lr))
         nlinear.cuda()
