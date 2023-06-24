@@ -1,12 +1,30 @@
-import pandas as pd
-from os.path import join, abspath
-import numpy as np
-from torch.utils.data import DataLoader
-from sklearn.preprocessing import StandardScaler
+from os.path import abspath, join
 
-from constants import VAL_SIZE, TEST_SIZE
+import torch
+import numpy as np
+import pandas as pd
+from sklearn.preprocessing import StandardScaler
+from torch.utils.data import DataLoader, Dataset
+
+from constants import TEST_SIZE, VAL_SIZE
+
 
 DATA_DIR = abspath('./data')
+
+
+class CustomDataset(Dataset):
+    def __init__(self, X: np.ndarray, y: np.ndarray) -> None:
+        assert len(X) == len(y)
+
+        self.X = torch.from_numpy(X).cuda()
+        self.y = torch.from_numpy(y).cuda()
+        self.length = len(X)
+
+    def __getitem__(self, index) -> torch.TensorType:
+        return self.X[index,:], self.y[index,:]
+
+    def __len__(self):
+        return self.length
 
 
 def read_data(path: str) -> pd.DataFrame:
@@ -58,7 +76,7 @@ def read_3d2d1d() -> pd.DataFrame:
 
     return df
 
-def scale_data(values: np.array):
+def scale_data(values: np.ndarray):
     assert len(values.shape) == 2
 
     cutoff = int(len(values) * (1 - TEST_SIZE))
@@ -70,7 +88,7 @@ def scale_data(values: np.array):
 
     return scaler.transform(values), scaler
 
-def make_X_y(values: np.array, seq_len: int, pred_len: int):
+def make_X_y(values: np.ndarray, seq_len: int, pred_len: int):
     assert len(values.shape) == 2
 
     ys = []
@@ -101,7 +119,7 @@ def make_X_y(values: np.array, seq_len: int, pred_len: int):
 
     return np.array(Xs), np.array(ys)
 
-def train_test_split(X: np.array, y: np.array, test_size: int):
+def train_test_split(X: np.ndarray, y: np.ndarray, test_size: int):
     assert len(X) == len(y)
 
     cutoff = int(len(X) * (1 - test_size))
@@ -109,7 +127,7 @@ def train_test_split(X: np.array, y: np.array, test_size: int):
 
     return X[:cutoff, :], X[cutoff:,:], y[:cutoff,:], y[cutoff:,]
 
-def train_val_test_split(X, y):
+def train_val_test_split(X: np.ndarray, y: np.ndarray):
     assert len(X) == len(y)
 
     train_X, test_X, train_y, test_y = train_test_split(X, y, VAL_SIZE)
@@ -133,9 +151,9 @@ def _prepare_dataloaders(df: pd.DataFrame, batch_size: int, seq_len: int, pred_l
     assert n_channels == val_y.shape[2]
     assert n_channels == test_y.shape[2]
 
-    train_loader = DataLoader(list(zip(train_X, train_y)), shuffle=False, batch_size=batch_size)
-    val_loader = DataLoader(list(zip(val_X, val_y)), shuffle=False, batch_size=batch_size)
-    test_loader = DataLoader(list(zip(test_X, test_y)), shuffle=False, batch_size=batch_size)
+    train_loader = DataLoader(CustomDataset(train_X, train_y), shuffle=False, batch_size=batch_size)
+    val_loader = DataLoader(CustomDataset(val_X, val_y), shuffle=False, batch_size=batch_size)
+    test_loader = DataLoader(CustomDataset(test_X, test_y), shuffle=False, batch_size=batch_size)
 
     return train_loader, val_loader, test_loader, scaler
 

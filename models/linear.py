@@ -23,8 +23,6 @@ class LinearTrainBehavior(L.LightningModule):
 
     def extract_batch(self, batch):
         x, y = batch
-        x = x.cuda()
-        y = y.cuda()
 
         return x,y
 
