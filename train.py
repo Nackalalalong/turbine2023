@@ -104,7 +104,7 @@ def main(
     seq_len: int = H_LIST[0],
     pred_len: int = T_LIST[0],
     long_run: bool = False, 
-    max_epochs: int = 30,
+    max_epochs: int = 20,
     parallel: bool = False,
     skip_done: bool = False,
     max_workers: int = 4,
@@ -162,10 +162,11 @@ def main(
                     futures[future] = kwargs
 
                 for future in concurrent.futures.as_completed(futures):
-                    if future.exception():
+                    e = future.exception()
+                    if e:
                         kwargs = futures[future]
                         with open('exp_error.txt','a') as f:
-                            f.write(f"{datetime.now().isoformat()}\t{model}\t{kwargs['data']}\t{kwargs['seq_len']}\t{kwargs['pred_len']}\n")
+                            f.write(f"{datetime.now().isoformat()}\t{model}\t{kwargs['data']}\t{kwargs['seq_len']}\t{kwargs['pred_len']}\t{str(e)}\n")
                 
         else:
             for dataset_name,H,T in itertools.product(dataset_names, H_LIST, T_LIST):
@@ -196,11 +197,13 @@ def main(
 
         for dataset_name in translate_data(data):      
             train(
-                ModelClass(config),
+                ModelClass,
                 data=dataset_name,
                 max_epochs=max_epochs,
                 batch_size=batch_size,
                 name=model,
+                n_channels=n_channels,
+                lr=lr,
                 seq_len=seq_len,
                 pred_len=pred_len,
                 tensorboard_save_dir=tensorboard_save_dir
