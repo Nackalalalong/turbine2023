@@ -40,10 +40,11 @@ def train(
         pred_len: int,
         n_channels: int,
         lr: int,
+        tensorboard_save_dir: str,
         version: str = None,
         enable_progress_bar: bool = True,
         enable_model_summary: bool = True,
-        skip_done: bool = False
+        skip_done: bool = False,
         ):
     train_loader, val_loader, test_loader, scaler = prepare_dataloaders(
         data=data,
@@ -59,11 +60,9 @@ def train(
         n_channels=n_channels,
         lr=lr
     )
-    
-    save_dir = 'dev'
-    
+        
     if skip_done:
-        version_dir = os.path.join(save_dir, name, version)
+        version_dir = os.path.join(tensorboard_save_dir, name, version)
         if os.path.exists(version_dir):
             return True
 
@@ -71,7 +70,7 @@ def train(
     model.cuda()
 
     early_stop = EarlyStopping(monitor="val_loss", mode="min", patience=3)
-    logger = TensorBoardLogger(save_dir=save_dir, name=name, version=version)
+    logger = TensorBoardLogger(save_dir=tensorboard_save_dir, name=name, version=version)
 
     checkpoint_callback = ModelCheckpoint(
         monitor='val_loss',
@@ -107,7 +106,9 @@ def main(
     long_run: bool = False, 
     max_epochs: int = 30,
     parallel: bool = False,
-    skip_done: bool = False
+    skip_done: bool = False,
+    max_workers: int = 4,
+    tensorboard_save_dir: str = 'exp'
 ):
     if model not in ['all'] + MODELS:
         raise 'invalid model'
@@ -129,10 +130,10 @@ def main(
     
     if long_run:
         dataset_names = translate_data(data)
-        args_list = itertools.product(dataset_names, H_LIST[:2], T_LIST[:2])
+        args_list = itertools.product(dataset_names, H_LIST, T_LIST)
 
         if parallel:
-            with concurrent.futures.ProcessPoolExecutor(max_workers=4) as executor:
+            with concurrent.futures.ProcessPoolExecutor(max_workers=max_workers) as executor:
                 futures = {}
 
                 for dataset_name, H, T in args_list:
@@ -149,7 +150,8 @@ def main(
                         version=f'{dataset_name}/H{H}-T{T}',
                         enable_progress_bar=False,
                         enable_model_summary=False,
-                        skip_done=skip_done
+                        skip_done=skip_done,
+                        tensorboard_save_dir=tensorboard_save_dir
                     )
 
                     future = executor.submit(
@@ -179,7 +181,8 @@ def main(
                     n_channels=n_channels,
                     lr=lr,
                     version=f'{dataset_name}/H{H}-T{T}',
-                    skip_done=skip_done
+                    skip_done=skip_done,
+                    tensorboard_save_dir=tensorboard_save_dir
                 )
 
 
@@ -199,7 +202,8 @@ def main(
                 batch_size=batch_size,
                 name=model,
                 seq_len=seq_len,
-                pred_len=pred_len
+                pred_len=pred_len,
+                tensorboard_save_dir=tensorboard_save_dir
             )
 
 if __name__ == '__main__':
