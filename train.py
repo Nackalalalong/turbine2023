@@ -10,7 +10,7 @@ warnings.filterwarnings('ignore')
 from data import prepare_dataloaders
 from constants import H_LIST, T_LIST
 from models.linear import NLinear, DLinear
-from constants import Config, NLinearTuneResult, DLinearTuneResult
+from constants import Config, NLinearTuneResult, DLinearTuneResult, DATASETS, MODELS
 
 
 app = typer.Typer(pretty_exceptions_enable=False)
@@ -56,6 +56,15 @@ def train(
     trainer.fit(model, train_loader, val_loader)
 
 
+def iterate_data(data: str):
+    if data != 'all':
+        yield data
+
+    else:
+        for e in DATASETS:
+            yield e
+
+
 @app.command()
 def main(
     model: str = 'nlinear',
@@ -66,10 +75,10 @@ def main(
     max_epochs: int = 100,
 
 ):
-    if model not in ['all', 'nlinear','dlinear','jtft']:
+    if model not in ['all'] + MODELS:
         raise 'invalid model'
     
-    if data not in ['1d','2d','3d']:
+    if data not in ['all'] + DATASETS:
         raise 'invalid data'
     
     lr = None
@@ -92,17 +101,18 @@ def main(
                 n_channels=n_channels,
                 lr=lr
             )
-            
-            train(
-                ModelClass(config),
-                data=data,
-                max_epochs=max_epochs,
-                batch_size=batch_size,
-                name=model,
-                seq_len=H,
-                pred_len=T,
-                version=f'H{H}-T{T}'
-            )
+
+            for dataset_name in iterate_data(data):  
+                train(
+                    ModelClass(config),
+                    data=dataset_name,
+                    max_epochs=max_epochs,
+                    batch_size=batch_size,
+                    name=model,
+                    seq_len=H,
+                    pred_len=T,
+                    version=f'{dataset_name}/H{H}-T{T}'
+                )
 
     else:
         config = Config(
@@ -111,16 +121,17 @@ def main(
             n_channels=n_channels,
             lr=lr
         )
-        
-        train(
-            ModelClass(config),
-            data=data,
-            max_epochs=max_epochs,
-            batch_size=batch_size,
-            name=model,
-            seq_len=seq_len,
-            pred_len=pred_len
-        )
+
+        for dataset_name in iterate_data(data):      
+            train(
+                ModelClass(config),
+                data=dataset_name,
+                max_epochs=max_epochs,
+                batch_size=batch_size,
+                name=model,
+                seq_len=seq_len,
+                pred_len=pred_len
+            )
 
 if __name__ == '__main__':
 

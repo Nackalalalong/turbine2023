@@ -14,6 +14,9 @@ T_LIST = [96, 192, 336, 720]
 VAL_SIZE = 0.25
 TEST_SIZE = 0.2
 
+DATASETS = ['1d', '2d', '3d']
+MODELS = ['nlinear', 'dlinear', 'jtft']
+
 # from tuning
 class NLinearTuneResult:
     best_lr = 0.00017278732761833284
