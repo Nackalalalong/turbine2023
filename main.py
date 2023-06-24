@@ -7,7 +7,7 @@ import typer
 from data import prepare_3d_dataloaders
 from constants import H_LIST, T_LIST
 from models.linear import NLinear, DLinear
-from constants import Config, NLinearTuneResult
+from constants import Config, NLinearTuneResult, DLinearTuneResult
 
 
 app = typer.Typer(pretty_exceptions_enable=False)
@@ -74,10 +74,10 @@ def train_dlinear(max_epochs: int = 10):
         seq_len=seq_len, 
         pred_len=pred_len, 
         n_channels=n_channels, 
-        lr=1e-3
+        lr=DLinearTuneResult.best_lr
     ))
 
-    train(dlinear, max_epochs=max_epochs, batch_size=8, name='DLinear')
+    train(dlinear, max_epochs=max_epochs, batch_size=DLinearTuneResult.best_batchsize, name='DLinear')
 
 
 if __name__ == '__main__':

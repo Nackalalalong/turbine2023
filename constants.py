@@ -18,3 +18,8 @@ TEST_SIZE = 0.2
 class NLinearTuneResult:
     best_lr = 0.00017278732761833284
     best_batchsize = 32
+
+
+class DLinearTuneResult:
+    best_lr = 0.00019680701995431586
+    best_batchsize = 64
