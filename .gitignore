@@ -2,3 +2,4 @@ lightning_logs
 dev
 cache
 **/__pycache__/
+tuning/**/checkpoints/
