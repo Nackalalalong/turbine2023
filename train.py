@@ -2,6 +2,8 @@ import concurrent.futures
 import itertools
 import os
 from datetime import datetime
+import json
+import shutil
 
 import lightning as L
 import torch
@@ -25,6 +27,7 @@ from constants import (DATASETS, H_LIST, MODELS, T_LIST, Config,
                        DLinearTuneResult, NLinearTuneResult)
 from data import prepare_dataloaders
 from models.linear import DLinear, NLinear
+from utils import read_event_values
 
 app = typer.Typer(pretty_exceptions_enable=False)
 
@@ -45,6 +48,7 @@ def train(
         enable_progress_bar: bool = True,
         enable_model_summary: bool = True,
         skip_done: bool = False,
+        eval_after_train: bool = False
         ):
     train_loader, val_loader, test_loader, scaler = prepare_dataloaders(
         data=data,
@@ -61,33 +65,70 @@ def train(
         lr=lr
     )
         
+    done = False
+    version_dir = os.path.join(tensorboard_save_dir, name, version)
     if skip_done:
-        version_dir = os.path.join(tensorboard_save_dir, name, version)
-        if os.path.exists(version_dir):
-            return True
+        val_loss_dir = os.path.join(version_dir, 'loss_val')
+        if os.path.exists(val_loss_dir):
+            event_filename = os.listdir(val_loss_dir)[0]
+            event_filepath = os.path.join(val_loss_dir, event_filename)
+            values = read_event_values(event_filepath)
 
-    model = ModelClass(config)
-    model.cuda()
+            # there is an extra step 0
+            if len(values) >= max_epochs + 1:
+                done = True
 
-    early_stop = EarlyStopping(monitor="val_loss", mode="min", patience=3)
-    logger = TensorBoardLogger(save_dir=tensorboard_save_dir, name=name, version=version)
-
-    checkpoint_callback = ModelCheckpoint(
-        monitor='val_loss',
-        mode='min',
-        filename=name + '-{epoch:02d}-{val_loss:.4f}',
-        save_top_k=1
-    )
+    if ( skip_done and done ) and not eval_after_train:
+        return
     
-    trainer = L.Trainer(
-        max_epochs=max_epochs,
-        callbacks=[checkpoint_callback, early_stop],
-        logger=logger,
-        enable_progress_bar=enable_progress_bar,
-        enable_model_summary=enable_model_summary,
-    )
+    model: L.LightningModule = ModelClass(config)
+    model.cuda()    
 
-    trainer.fit(model, train_loader, val_loader)
+    if not (skip_done and done):
+
+        if os.path.exists(version_dir):
+            shutil.rmtree(version_dir)
+
+        early_stop = EarlyStopping(monitor="val_loss", mode="min", patience=3)
+        logger = TensorBoardLogger(save_dir=tensorboard_save_dir, name=name, version=version)
+
+        checkpoint_callback = ModelCheckpoint(
+            monitor='val_loss',
+            mode='min',
+            filename=name + '-{epoch:02d}-{val_loss:.4f}',
+            save_top_k=1
+        )
+
+        trainer = L.Trainer(
+            max_epochs=max_epochs,
+            callbacks=[checkpoint_callback, early_stop],
+            logger=logger,
+            enable_progress_bar=enable_progress_bar,
+            enable_model_summary=enable_model_summary,
+        )
+        trainer.fit(model, train_loader, val_loader)
+
+        with open(os.path.join(version_dir, 'config.json'), 'w') as f:
+            json.dump(config.__dict__, f)
+    
+    if eval_after_train:
+        checkpoint_dir = os.path.join(version_dir, 'checkpoints')
+        checkpoint_filename = os.listdir(checkpoint_dir)[0]
+        checkpoint_filepath = os.path.join(checkpoint_dir, checkpoint_filename)
+        model = model.load_from_checkpoint(checkpoint_filepath, config=config)
+        model.freeze()
+        model.eval()
+
+        trainer = L.Trainer(
+            enable_progress_bar=enable_progress_bar,
+            enable_model_summary=enable_model_summary,
+        )
+
+        result = trainer.test(model, dataloaders=(test_loader), verbose=False)[0]
+
+        with open(os.path.join(version_dir, 'eval.json'), 'w') as f:
+            json.dump(result, f)
+
 
 
 def translate_data(data: str):
@@ -108,7 +149,8 @@ def main(
     parallel: bool = False,
     skip_done: bool = False,
     max_workers: int = 4,
-    tensorboard_save_dir: str = 'exp'
+    tensorboard_save_dir: str = 'exp',
+    eval_after_train: bool = False
 ):
     if model not in ['all'] + MODELS:
         raise 'invalid model'
@@ -151,7 +193,8 @@ def main(
                         enable_progress_bar=False,
                         enable_model_summary=False,
                         skip_done=skip_done,
-                        tensorboard_save_dir=tensorboard_save_dir
+                        tensorboard_save_dir=tensorboard_save_dir,
+                        eval_after_train=eval_after_train
                     )
 
                     future = executor.submit(
@@ -183,17 +226,12 @@ def main(
                     lr=lr,
                     version=f'{dataset_name}/H{H}-T{T}',
                     skip_done=skip_done,
-                    tensorboard_save_dir=tensorboard_save_dir
+                    tensorboard_save_dir=tensorboard_save_dir,
+                    eval_after_train=eval_after_train
                 )
 
 
     else:
-        config = Config(
-            seq_len=seq_len,
-            pred_len=pred_len,
-            n_channels=n_channels,
-            lr=lr
-        )
 
         for dataset_name in translate_data(data):      
             train(
@@ -206,7 +244,10 @@ def main(
                 lr=lr,
                 seq_len=seq_len,
                 pred_len=pred_len,
-                tensorboard_save_dir=tensorboard_save_dir
+                tensorboard_save_dir=tensorboard_save_dir,
+                eval_after_train=eval_after_train,
+                version=f'{dataset_name}/H{seq_len}-T{pred_len}',
+                skip_done=skip_done
             )
 
 if __name__ == '__main__':

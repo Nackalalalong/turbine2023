@@ -20,6 +20,7 @@ class LinearTrainBehavior(L.LightningModule):
 
         self.validation_step_losses = []
         self.training_step_losses = []
+        self.test_step_losses = []
 
     def extract_batch(self, batch):
         x, y = batch
@@ -55,6 +56,19 @@ class LinearTrainBehavior(L.LightningModule):
         self.logger.experiment.add_scalars('loss', {'val': avg_loss}, self.current_epoch) 
         self.log('val_loss', avg_loss, prog_bar=True, logger=False)
         self.validation_step_losses.clear()
+
+    def test_step(self, batch, batch_idx):
+        x,y = self.extract_batch(batch)
+
+        y_hat = self.forward(x)
+        loss = F.mse_loss(y_hat, y)
+        self.test_step_losses.append(loss.item())
+
+    def on_test_epoch_end(self) -> None:
+        losses = self.test_step_losses
+        avg_loss = sum(losses) / len(losses)
+        self.log('test_loss', avg_loss, prog_bar=True)
+        self.test_step_losses.clear()
 
     def configure_optimizers(self):
         optimizer = torch.optim.Adam(self.parameters(), lr=self.lr)
