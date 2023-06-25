@@ -86,10 +86,12 @@ def train(
 
     if not (skip_done and done):
 
+        print('training', version_dir, '...')
+
         if os.path.exists(version_dir):
             shutil.rmtree(version_dir)
 
-        early_stop = EarlyStopping(monitor="val_loss", mode="min", patience=3)
+        # early_stop = EarlyStopping(monitor="val_loss", mode="min", patience=3)
         logger = TensorBoardLogger(save_dir=tensorboard_save_dir, name=name, version=version)
 
         checkpoint_callback = ModelCheckpoint(
@@ -101,7 +103,7 @@ def train(
 
         trainer = L.Trainer(
             max_epochs=max_epochs,
-            callbacks=[checkpoint_callback, early_stop],
+            callbacks=[checkpoint_callback],
             logger=logger,
             enable_progress_bar=enable_progress_bar,
             enable_model_summary=enable_model_summary,
@@ -111,6 +113,9 @@ def train(
         with open(os.path.join(version_dir, 'config.json'), 'w') as f:
             json.dump(config.__dict__, f)
     
+    del train_loader
+    del val_loader
+
     if eval_after_train:
         checkpoint_dir = os.path.join(version_dir, 'checkpoints')
         checkpoint_filename = os.listdir(checkpoint_dir)[0]
@@ -129,6 +134,11 @@ def train(
         with open(os.path.join(version_dir, 'eval.json'), 'w') as f:
             json.dump(result, f)
 
+    del test_loader
+    del trainer
+    del model
+
+    torch.cuda.empty_cache()
 
 
 def translate_data(data: str):
@@ -224,6 +234,8 @@ def main(
                     pred_len=T,
                     n_channels=n_channels,
                     lr=lr,
+                    enable_progress_bar=False,
+                    enable_model_summary=False,
                     version=f'{dataset_name}/H{H}-T{T}',
                     skip_done=skip_done,
                     tensorboard_save_dir=tensorboard_save_dir,

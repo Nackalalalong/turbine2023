@@ -3,3 +3,4 @@ dev
 cache
 **/__pycache__/
 tuning/**/checkpoints/
+exp

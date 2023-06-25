@@ -16,8 +16,8 @@ class CustomDataset(Dataset):
     def __init__(self, X: np.ndarray, y: np.ndarray) -> None:
         assert len(X) == len(y)
 
-        self.X = torch.from_numpy(X).cuda()
-        self.y = torch.from_numpy(y).cuda()
+        self.X = torch.from_numpy(X)
+        self.y = torch.from_numpy(y)
         self.length = len(X)
 
     def __getitem__(self, index) -> torch.TensorType:

@@ -25,7 +25,7 @@ class LinearTrainBehavior(L.LightningModule):
     def extract_batch(self, batch):
         x, y = batch
 
-        return x,y
+        return x.cuda() , y.cuda()
 
     def training_step(self, batch, batch_idx):
         x,y = self.extract_batch(batch)
