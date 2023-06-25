@@ -1,6 +1,7 @@
 from typing import Tuple, List
 import os
 from tensorboard.backend.event_processing import event_accumulator
+import json
 
 
 def extract_H_T(H_T_dirname: str) -> Tuple[int,int]:
@@ -18,7 +19,7 @@ def read_event_values(event_path: str) -> List[float]:
     return values
 
 
-def read_train_val_loss(ht_dir_path: str) -> Tuple[List[float], List[float]]:
+def read_train_val_test_loss(ht_dir_path: str) -> Tuple[List[float], List[float], float]:
     loss_train_dir = os.path.join(ht_dir_path, 'loss_train')
     loss_val_dir = os.path.join(ht_dir_path, 'loss_val')
 
@@ -28,4 +29,8 @@ def read_train_val_loss(ht_dir_path: str) -> Tuple[List[float], List[float]]:
     train_event_filepath = os.path.join(loss_train_dir, train_event_filename)
     val_event_filepath = os.path.join(loss_val_dir, val_event_filename)
 
-    return read_event_values(train_event_filepath), read_event_values(val_event_filepath)
+    eval_json_file = os.path.join(ht_dir_path, 'eval.json')
+    with open(eval_json_file) as f:
+        test_loss = json.load(f)['test_loss']
+
+    return read_event_values(train_event_filepath), read_event_values(val_event_filepath), test_loss
