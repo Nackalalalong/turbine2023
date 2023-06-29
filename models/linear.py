@@ -74,6 +74,11 @@ class LinearTrainBehavior(L.LightningModule):
         optimizer = torch.optim.Adam(self.parameters(), lr=self.lr)
         scheduler = StepLR(optimizer, step_size=5, gamma=0.8)
         return {'optimizer': optimizer, 'lr_scheduler': scheduler }
+    
+    def predict_step(self, batch, batch_idx, dataloader_idx=0):
+        x,y = self.extract_batch(batch)
+
+        return self.forward(x)
 
 
 class NLinear(LinearTrainBehavior):

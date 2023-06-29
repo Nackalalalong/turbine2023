@@ -64,9 +64,14 @@ def train(
         n_channels=n_channels,
         lr=lr
     )
+
+    version_dir = os.path.join(tensorboard_save_dir, name, version)
+    with open(os.path.join(version_dir, 'config.json'), 'w') as f:
+        config_dict = config.__dict__
+        config_dict['batch_size'] = batch_size
+        json.dump(config_dict, f)
         
     done = False
-    version_dir = os.path.join(tensorboard_save_dir, name, version)
     if skip_done:
         val_loss_dir = os.path.join(version_dir, 'loss_val')
         if os.path.exists(val_loss_dir):
@@ -109,14 +114,12 @@ def train(
             enable_model_summary=enable_model_summary,
         )
         trainer.fit(model, train_loader, val_loader)
-
-        with open(os.path.join(version_dir, 'config.json'), 'w') as f:
-            json.dump(config.__dict__, f)
     
     del train_loader
     del val_loader
 
     if eval_after_train:
+        print('evaluating', version_dir, '...')
         checkpoint_dir = os.path.join(version_dir, 'checkpoints')
         checkpoint_filename = os.listdir(checkpoint_dir)[0]
         checkpoint_filepath = os.path.join(checkpoint_dir, checkpoint_filename)
