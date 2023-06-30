@@ -1,15 +1,26 @@
 import typer
-import os
+from os import listdir
+from os.path import join
 import json
 import lightning as L
-import torch
 import numpy as np
 import matplotlib.pyplot as plt
+import pickle
+from tqdm import tqdm
 
 from models.linear import NLinear, DLinear
-from utils import extract_H_T
+from utils import extract_H_T, create_dirs_if_not_exist
 from constants import Config, DATASETS
 from data import prepare_dataloaders
+
+import logging
+
+logging.getLogger("lightning.pytorch.utilities.rank_zero").setLevel(logging.WARNING)
+logging.getLogger("lightning.pytorch.accelerators.cuda").setLevel(logging.WARNING)
+
+import warnings
+
+warnings.filterwarnings('ignore')
 
 
 app = typer.Typer(pretty_exceptions_enable=False)
@@ -22,7 +33,7 @@ def build_model(model_name: str, config: Config) -> L.LightningModule:
         return DLinear(config=config)
 
 
-def average_predictions(predictions: list, batch_size: int, only_first=False) -> np.ndarray:
+def average_predictions(predictions: list, batch_size: int) -> np.ndarray:
     preds = []
     for batch_index,batch in enumerate(predictions):
         for pred_sequence_index, pred_sequence in enumerate(batch):
@@ -32,15 +43,16 @@ def average_predictions(predictions: list, batch_size: int, only_first=False) ->
                     preds.append([])
                 preds[pred_index].append(time_step)
 
-    avg_preds = []
+    firsts_preds = []
+    means_preds = []
     for pred in preds:
-        if only_first:
-            temp = np.array(pred)[0,:]
-        else:
-            temp = np.mean(pred, axis=0)
-        avg_preds.append(temp)
+        firsts = np.array(pred)[0,:]
+        firsts_preds.append(firsts)
 
-    return np.array(avg_preds)
+        means = np.mean(pred, axis=0)
+        means_preds.append(means)
+
+    return means_preds, firsts_preds
 
 
 def plot_reconstructed(preds: np.ndarray, targets: np.ndarray):
@@ -57,26 +69,59 @@ def plot_reconstructed(preds: np.ndarray, targets: np.ndarray):
 
         axes[i].title.set_text(titles[i])
 
-    plt.show()
 
+def count_total_loop(root_dir: str):
+    i = 0
+    for model_name in listdir(root_dir):
+        model_dir = join(root_dir, model_name)
+        for data in DATASETS:
+            data_dir = join(model_dir, data)
+            for ht_name in listdir(data_dir):
+                i += 1
+    
+    return i
 
 
 @app.command()
 def main(
         tensorbaord_save_dir: str = 'exp'
         ):
-    for data in DATASETS:
-        for model_name in os.listdir(tensorbaord_save_dir):
-            model_dir = os.path.join(tensorbaord_save_dir,model_name)
+    
 
-            data_dir = os.path.join(model_dir, data)
+    total_loop = count_total_loop(tensorbaord_save_dir)
+    
 
-            for ht_name in os.listdir(data_dir):
-                ht_dir = os.path.join(data_dir, ht_name)
+    out_dir = 'reconstructed/'
+    create_dirs_if_not_exist(out_dir)
+    
+    values_dir = join(out_dir, 'values')
+    create_dirs_if_not_exist(values_dir)
+
+    individuals_dir = join(out_dir, 'individuals')
+    create_dirs_if_not_exist(individuals_dir)
+
+    pbar = tqdm(total=total_loop)
+
+    for model_name in listdir(tensorbaord_save_dir):
+        model_dir = join(tensorbaord_save_dir,model_name)
+
+
+        for data in DATASETS:
+            data_dir = join(model_dir, data)
+
+            targets = None
+            means_preds_list = []
+            firsts_preds_list = []
+
+            for ht_name in listdir(data_dir):
+                pbar.set_description(f'{model_name}, {data}, {ht_name}')
+
+                ht_dir = join(data_dir, ht_name)
                 H,T = extract_H_T(ht_name)
-                checkpoint_path = os.listdir(os.path.join(ht_dir, 'checkpoints'))[0]
+                checkpoint_name = listdir(join(ht_dir, 'checkpoints'))[0]
+                checkpoint_path = join(ht_dir, 'checkpoints', checkpoint_name)
 
-                with open(os.path.join(ht_dir, 'config.json')) as f:
+                with open(join(ht_dir, 'config.json')) as f:
                     config_dict = json.load(f)
                 batch_size = config_dict['batch_size']
                 del config_dict['batch_size']
@@ -95,25 +140,75 @@ def main(
                 model.freeze()
                 model.eval()
 
-                trainer = L.Trainer()
+                trainer = L.Trainer(
+                    enable_progress_bar=False,
+                    enable_model_summary=False,
+                )
 
                 predictions = trainer.predict(model, test_loader)
                 
-                preds = average_predictions(predictions, batch_size)
-                batch_y_list = []
-                for batch in test_loader:
-                    x,y = batch
-                    batch_y_list.append(y)
+                means_preds, first_preds = average_predictions(predictions, batch_size)
+                means_preds = scaler.inverse_transform(means_preds)
+                means_preds_list.append(means_preds)
 
-                targets = average_predictions(batch_y_list, batch_size, only_first=True)
+                first_preds = scaler.inverse_transform(first_preds)
+                firsts_preds_list.append(first_preds)
 
-                preds = scaler.inverse_transform(preds)
-                targets = scaler.inverse_transform(targets)
+                means_preds_obj_dir = join(values_dir, model_name, data, "means")
+                create_dirs_if_not_exist(means_preds_obj_dir)
+                means_preds_obj_path = join(means_preds_obj_dir, ht_name + '.pickle')
+                with open(means_preds_obj_path, 'wb') as f:
+                    pickle.dump(means_preds, f)
+                    
+                firsts_preds_obj_dir = join(values_dir, model_name, data, "firsts")
+                create_dirs_if_not_exist(firsts_preds_obj_dir)
+                firsts_preds_obj_path = join(firsts_preds_obj_dir, ht_name + '.pickle')
+                with open(firsts_preds_obj_path, 'wb') as f:
+                    pickle.dump(first_preds, f)      
 
-                plt.scatter(targets, preds)
-                plt.savefig("test_eval.png")
+                if targets is None:
+                    batch_y_list = []
+                    for batch in test_loader:
+                        x,y = batch
+                        batch_y_list.append(y)
 
-                exit(0)
+                    _, targets = average_predictions(batch_y_list, batch_size)
+                    targets = scaler.inverse_transform(targets)
+
+                # plot individual
+                indiv_means_preds_dir = join(individuals_dir, model_name, data, 'means')
+                create_dirs_if_not_exist(indiv_means_preds_dir)
+                indiv_means_preds_img_path = join(indiv_means_preds_dir, ht_name + '.png')
+                plot_reconstructed(means_preds, targets)
+                plt.savefig(indiv_means_preds_img_path)
+
+                indiv_firsts_preds_dir = join(individuals_dir, model_name, data, 'firsts')
+                create_dirs_if_not_exist(indiv_firsts_preds_dir)
+                indiv_firsts_preds_img_path = join(indiv_firsts_preds_dir, ht_name + '.png')
+                plot_reconstructed(first_preds, targets)
+                plt.savefig(indiv_firsts_preds_img_path)
+
+                pbar.update(1)
+
+
+            targets_path = join(values_dir, model_name, data, 'targets.pickle')
+            with open(targets_path, 'wb') as f:
+                pickle.dump(targets, f)
+
+            preds = np.mean(means_preds_list, axis=0)
+            plot_reconstructed(preds, targets)
+            img_name = f"{model_name}_{data}_means.png"
+            img_path = join(out_dir, img_name)
+            plt.savefig(img_path)
+
+
+            preds = np.mean(firsts_preds_list, axis=0)
+            plot_reconstructed(preds, targets)
+            img_name = f"{model_name}_{data}_firsts.png"
+            img_path = join(out_dir, img_name)
+            plt.savefig(img_path)
+            
+            
 
 
 

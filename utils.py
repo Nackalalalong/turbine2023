@@ -34,3 +34,8 @@ def read_train_val_test_loss(ht_dir_path: str) -> Tuple[List[float], List[float]
         test_loss = json.load(f)['test_loss']
 
     return read_event_values(train_event_filepath), read_event_values(val_event_filepath), test_loss
+
+
+def create_dirs_if_not_exist(dir: str):
+    if not os.path.exists(dir):
+        os.makedirs(dir)
