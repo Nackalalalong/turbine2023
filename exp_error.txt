@@ -1,0 +1,7 @@
+2023-07-01T16:37:19.873802	nlinear	3d	720	720	Unable to allocate 805. MiB for an array with shape (48841, 720, 3) and data type float64
+2023-07-01T18:52:48.405957	dlinear	3d	504	720	[enforce fail at ..\c10\core\impl\alloc_cpu.cpp:72] data. DefaultCPUAllocator: not enough memory: you tried to allocate 2903040 bytes.
+2023-07-01T18:52:48.416031	dlinear	3d	672	720	Error tokenizing data. C error: out of memory
+2023-07-01T18:52:48.417237	dlinear	3d	720	96	Error tokenizing data. C error: out of memory
+2023-07-01T18:52:48.421438	dlinear	3d	720	192	Error tokenizing data. C error: out of memory
+2023-07-01T18:52:48.421438	dlinear	3d	720	336	Error tokenizing data. C error: out of memory
+2023-07-01T18:52:48.421438	dlinear	3d	720	720	Error tokenizing data. C error: out of memory
