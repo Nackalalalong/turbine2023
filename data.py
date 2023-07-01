@@ -96,14 +96,14 @@ def make_X_y(values: np.ndarray, seq_len: int, pred_len: int):
 
     i = 0
     while True:
-        x_index_start = i + pred_len
-        x_index_end = x_index_start + seq_len
+        y_index_start = i + seq_len
+        y_index_end = y_index_start + pred_len
 
-        if x_index_end > values.shape[0]:
+        if y_index_end > values.shape[0]:
             break
 
-        y = values[i:x_index_start,:]
-        X = values[x_index_start:x_index_end,:]
+        X = values[i:y_index_start,:]
+        y = values[y_index_start:y_index_end,:]
 
         if len(ys) > 0:
             assert len(y) == len(ys[-1])
@@ -183,14 +183,14 @@ if __name__ == '__main__':
 
     df = pd.DataFrame({'a': [1,2,3,4,5], 'b': [6,7,8,9,10]})
     X, y = make_X_y(df.values, 2, 2)
-    assert np.array_equal(X, np.array([
+    assert np.array_equal(y, np.array([
         [[ 3, 8],
          [ 4, 9]],
         [[ 4, 9],
          [ 5, 10]]
     ]))
 
-    assert np.array_equal(y, np.array([
+    assert np.array_equal(X, np.array([
         [[1, 6],
          [2, 7]],
         [[2, 7],

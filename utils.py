@@ -2,6 +2,9 @@ from typing import Tuple, List
 import os
 from tensorboard.backend.event_processing import event_accumulator
 import json
+import itertools
+
+from constants import H_LIST, T_LIST
 
 
 def extract_H_T(H_T_dirname: str) -> Tuple[int,int]:
@@ -39,3 +42,11 @@ def read_train_val_test_loss(ht_dir_path: str) -> Tuple[List[float], List[float]
 def create_dirs_if_not_exist(dir: str):
     if not os.path.exists(dir):
         os.makedirs(dir)
+
+
+def get_h_t_combination():
+    names = []
+    for h,t in itertools.product(H_LIST, T_LIST):
+        names.append(f"H{h}-T{t}")
+
+    return names

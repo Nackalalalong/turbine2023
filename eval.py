@@ -7,6 +7,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 import pickle
 from tqdm import tqdm
+import torch
 
 from models.linear import NLinear, DLinear
 from utils import extract_H_T, create_dirs_if_not_exist
@@ -33,24 +34,29 @@ def build_model(model_name: str, config: Config) -> L.LightningModule:
         return DLinear(config=config)
 
 
-def average_predictions(predictions: list, batch_size: int) -> np.ndarray:
-    preds = []
-    for batch_index,batch in enumerate(predictions):
-        for pred_sequence_index, pred_sequence in enumerate(batch):
-            for time_step_index, time_step in enumerate(pred_sequence):
-                pred_index = (batch_index * batch_size) + pred_sequence_index + time_step_index
-                if pred_index >= len(preds):
-                    preds.append([])
-                preds[pred_index].append(time_step)
+def average_predictions(predictions: list[torch.TensorType]) -> np.ndarray:
 
+    predictions = torch.vstack(predictions)
+
+    preds = []
     firsts_preds = []
+    for pred_sequence_index in range(predictions.shape[0]):
+        for time_step_index in range(predictions.shape[1]):
+            if time_step_index == 0:
+                firsts_preds.append(predictions[pred_sequence_index,0,:])
+            pred_index = pred_sequence_index + time_step_index
+            if pred_index >= len(preds):
+                preds.append([])
+            preds[pred_index].append(predictions[pred_sequence_index,time_step_index,:])
+
     means_preds = []
     for pred in preds:
-        firsts = np.array(pred)[0,:]
-        firsts_preds.append(firsts)
 
         means = np.mean(pred, axis=0)
         means_preds.append(means)
+
+    firsts_preds = np.array(firsts_preds)
+    means_preds = np.array(means_preds)
 
     return means_preds, firsts_preds
 
@@ -82,6 +88,13 @@ def count_total_loop(root_dir: str):
     return i
 
 
+def save_pickle(dir: str, filename: str, obj: object):
+    create_dirs_if_not_exist(dir)
+    filepath = join(dir, filename)
+    with open(filepath, 'wb') as f:
+        pickle.dump(obj, f)     
+
+
 @app.command()
 def main(
         tensorbaord_save_dir: str = 'exp'
@@ -102,16 +115,11 @@ def main(
 
     pbar = tqdm(total=total_loop)
 
-    for model_name in listdir(tensorbaord_save_dir):
-        model_dir = join(tensorbaord_save_dir,model_name)
+    for data in DATASETS:
+        for model_name in listdir(tensorbaord_save_dir):
+            model_dir = join(tensorbaord_save_dir,model_name)
 
-
-        for data in DATASETS:
             data_dir = join(model_dir, data)
-
-            targets = None
-            means_preds_list = []
-            firsts_preds_list = []
 
             for ht_name in listdir(data_dir):
                 pbar.set_description(f'{model_name}, {data}, {ht_name}')
@@ -147,71 +155,67 @@ def main(
 
                 predictions = trainer.predict(model, test_loader)
                 
-                means_preds, first_preds = average_predictions(predictions, batch_size)
+                means_preds, first_preds = average_predictions(predictions)
                 means_preds = scaler.inverse_transform(means_preds)
-                means_preds_list.append(means_preds)
 
                 first_preds = scaler.inverse_transform(first_preds)
-                firsts_preds_list.append(first_preds)
 
-                means_preds_obj_dir = join(values_dir, model_name, data, "means")
-                create_dirs_if_not_exist(means_preds_obj_dir)
-                means_preds_obj_path = join(means_preds_obj_dir, ht_name + '.pickle')
-                with open(means_preds_obj_path, 'wb') as f:
-                    pickle.dump(means_preds, f)
-                    
-                firsts_preds_obj_dir = join(values_dir, model_name, data, "firsts")
-                create_dirs_if_not_exist(firsts_preds_obj_dir)
-                firsts_preds_obj_path = join(firsts_preds_obj_dir, ht_name + '.pickle')
-                with open(firsts_preds_obj_path, 'wb') as f:
-                    pickle.dump(first_preds, f)      
+                batch_y_list = []
+                for batch in test_loader:
+                    x,y = batch
+                    batch_y_list.append(y)
 
-                if targets is None:
-                    batch_y_list = []
-                    for batch in test_loader:
-                        x,y = batch
-                        batch_y_list.append(y)
+                targets_means, targets_firsts = average_predictions(batch_y_list)
+                targets_means = scaler.inverse_transform(targets_means)
+                targets_firsts = scaler.inverse_transform(targets_firsts)
 
-                    _, targets = average_predictions(batch_y_list, batch_size)
-                    targets = scaler.inverse_transform(targets)
+
+                # save pickles
+                save_pickle(
+                    join(values_dir, model_name, data, "means"),
+                    ht_name + '.pickle',
+                    means_preds
+                )
+
+                save_pickle(
+                    join(values_dir, model_name, data, "firsts"),
+                    ht_name + '.pickle',
+                    first_preds
+                )
+
+                save_pickle(
+                    join(values_dir, model_name, data, "targets_means"),
+                    ht_name + '.pickle',
+                    targets_means
+                )
+
+                save_pickle(
+                    join(values_dir, model_name, data, "targets_firsts"),
+                    ht_name + '.pickle',
+                    targets_firsts
+                )
 
                 # plot individual
+                title = f"{model_name} - {data} - {ht_name}"
+
                 indiv_means_preds_dir = join(individuals_dir, model_name, data, 'means')
                 create_dirs_if_not_exist(indiv_means_preds_dir)
                 indiv_means_preds_img_path = join(indiv_means_preds_dir, ht_name + '.png')
-                plot_reconstructed(means_preds, targets)
+                plot_reconstructed(means_preds, targets_means)
+                plt.suptitle(title)
+                plt.tight_layout()
                 plt.savefig(indiv_means_preds_img_path)
 
                 indiv_firsts_preds_dir = join(individuals_dir, model_name, data, 'firsts')
                 create_dirs_if_not_exist(indiv_firsts_preds_dir)
                 indiv_firsts_preds_img_path = join(indiv_firsts_preds_dir, ht_name + '.png')
-                plot_reconstructed(first_preds, targets)
+                plot_reconstructed(first_preds, targets_firsts)
+                plt.suptitle(title)
+                plt.tight_layout()
                 plt.savefig(indiv_firsts_preds_img_path)
 
                 pbar.update(1)
-
-
-            targets_path = join(values_dir, model_name, data, 'targets.pickle')
-            with open(targets_path, 'wb') as f:
-                pickle.dump(targets, f)
-
-            preds = np.mean(means_preds_list, axis=0)
-            plot_reconstructed(preds, targets)
-            img_name = f"{model_name}_{data}_means.png"
-            img_path = join(out_dir, img_name)
-            plt.savefig(img_path)
-
-
-            preds = np.mean(firsts_preds_list, axis=0)
-            plot_reconstructed(preds, targets)
-            img_name = f"{model_name}_{data}_firsts.png"
-            img_path = join(out_dir, img_name)
-            plt.savefig(img_path)
             
-            
-
-
-
 
 if __name__ == '__main__':
     app()

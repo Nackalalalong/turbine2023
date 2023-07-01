@@ -27,7 +27,8 @@ from constants import (DATASETS, H_LIST, MODELS, T_LIST, Config,
                        DLinearTuneResult, NLinearTuneResult)
 from data import prepare_dataloaders
 from models.linear import DLinear, NLinear
-from utils import read_event_values
+from utils import read_event_values, create_dirs_if_not_exist
+
 
 app = typer.Typer(pretty_exceptions_enable=False)
 
@@ -66,10 +67,6 @@ def train(
     )
 
     version_dir = os.path.join(tensorboard_save_dir, name, version)
-    with open(os.path.join(version_dir, 'config.json'), 'w') as f:
-        config_dict = config.__dict__
-        config_dict['batch_size'] = batch_size
-        json.dump(config_dict, f)
         
     done = False
     if skip_done:
@@ -136,6 +133,12 @@ def train(
 
         with open(os.path.join(version_dir, 'eval.json'), 'w') as f:
             json.dump(result, f)
+
+    with open(os.path.join(version_dir, 'config.json'), 'w') as f:
+        config_dict = config.__dict__
+        config_dict['batch_size'] = batch_size
+        print('writing config')
+        json.dump(config_dict, f)
 
     del test_loader
     del trainer
