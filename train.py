@@ -51,13 +51,6 @@ def train(
         skip_done: bool = False,
         eval_after_train: bool = False
         ):
-    train_loader, val_loader, test_loader, scaler = prepare_dataloaders(
-        data=data,
-        batch_size=batch_size, 
-        seq_len=seq_len, 
-        pred_len=pred_len,
-        n_channels=n_channels
-    )
 
     config = Config(
         seq_len=seq_len,
@@ -80,8 +73,21 @@ def train(
             if len(values) >= max_epochs + 1:
                 done = True
 
-    if ( skip_done and done ) and not eval_after_train:
+    eval_finish = False
+    eval_json_filepath = os.path.join(version_dir, 'eval.json')
+    if os.path.exists(eval_json_filepath):
+        eval_finish = True
+        
+    if ( skip_done and done ) and (not eval_after_train or eval_finish):
         return
+    
+    train_loader, val_loader, test_loader, scaler = prepare_dataloaders(
+        data=data,
+        batch_size=batch_size, 
+        seq_len=seq_len, 
+        pred_len=pred_len,
+        n_channels=n_channels
+    )
     
     model: L.LightningModule = ModelClass(config)
     model.cuda()    
@@ -115,7 +121,7 @@ def train(
     del train_loader
     del val_loader
 
-    if eval_after_train:
+    if eval_after_train and not eval_finish:
         print('evaluating', version_dir, '...')
         checkpoint_dir = os.path.join(version_dir, 'checkpoints')
         checkpoint_filename = os.listdir(checkpoint_dir)[0]
@@ -137,7 +143,6 @@ def train(
     with open(os.path.join(version_dir, 'config.json'), 'w') as f:
         config_dict = config.__dict__
         config_dict['batch_size'] = batch_size
-        print('writing config')
         json.dump(config_dict, f)
 
     del test_loader
