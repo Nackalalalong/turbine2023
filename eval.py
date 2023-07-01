@@ -8,6 +8,7 @@ import matplotlib.pyplot as plt
 import pickle
 from tqdm import tqdm
 import torch
+from torch.utils.data import DataLoader
 
 from models.linear import NLinear, DLinear
 from utils import extract_H_T, create_dirs_if_not_exist
@@ -34,20 +35,38 @@ def build_model(model_name: str, config: Config) -> L.LightningModule:
         return DLinear(config=config)
 
 
+def make_targets(test_loader: DataLoader):
+    targets_firsts = []
+    targets_means = []
+
+    batch_length = len(test_loader)
+    for batch_index, batch in enumerate(test_loader):
+        _, batch_y = batch
+        batch_size = len(batch_y)
+        for sequence_index, sequence in enumerate(batch_y):
+            targets_firsts.append(sequence[0,:])
+            targets_means.append(sequence[0,:])
+
+            if batch_index == batch_length - 1 and sequence_index == batch_size - 1:
+                for j in  range(1, len(sequence)):
+                    targets_means.append(sequence[j,:])
+
+    return targets_means, targets_firsts
+        
+
 def average_predictions(predictions: list[torch.TensorType]) -> np.ndarray:
-
-    predictions = torch.vstack(predictions)
-
+    batch_size = len(predictions[0])
     preds = []
     firsts_preds = []
-    for pred_sequence_index in range(predictions.shape[0]):
-        for time_step_index in range(predictions.shape[1]):
-            if time_step_index == 0:
-                firsts_preds.append(predictions[pred_sequence_index,0,:])
-            pred_index = pred_sequence_index + time_step_index
-            if pred_index >= len(preds):
-                preds.append([])
-            preds[pred_index].append(predictions[pred_sequence_index,time_step_index,:])
+    for batch_index,batch in enumerate(predictions):
+        for pred_sequence_index, pred_sequence in enumerate(batch):
+            for time_step_index, time_step in enumerate(pred_sequence):
+                if time_step_index == 0:
+                    firsts_preds.append(time_step)
+                pred_index = (batch_index * batch_size) + pred_sequence_index + time_step_index
+                if pred_index >= len(preds):
+                    preds.append([])
+                preds[pred_index].append(time_step)
 
     means_preds = []
     for pred in preds:
@@ -80,7 +99,7 @@ def count_total_loop(root_dir: str):
     i = 0
     for model_name in listdir(root_dir):
         model_dir = join(root_dir, model_name)
-        for data in DATASETS:
+        for data in ['1d']:
             data_dir = join(model_dir, data)
             for ht_name in listdir(data_dir):
                 i += 1
@@ -115,7 +134,7 @@ def main(
 
     pbar = tqdm(total=total_loop)
 
-    for data in DATASETS:
+    for data in ['1d']:
         for model_name in listdir(tensorbaord_save_dir):
             model_dir = join(tensorbaord_save_dir,model_name)
 
@@ -157,15 +176,9 @@ def main(
                 
                 means_preds, first_preds = average_predictions(predictions)
                 means_preds = scaler.inverse_transform(means_preds)
-
                 first_preds = scaler.inverse_transform(first_preds)
 
-                batch_y_list = []
-                for batch in test_loader:
-                    x,y = batch
-                    batch_y_list.append(y)
-
-                targets_means, targets_firsts = average_predictions(batch_y_list)
+                targets_means, targets_firsts = make_targets(test_loader)
                 targets_means = scaler.inverse_transform(targets_means)
                 targets_firsts = scaler.inverse_transform(targets_firsts)
 
