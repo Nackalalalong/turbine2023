@@ -86,7 +86,7 @@ def tune_DLinear():
         batch_size = config['batch_size']
         lr = config['lr']
 
-        train_loader, val_loader, test_loader, scaler = prepare_dataloaders('3', batch_size=batch_size, seq_len=seq_len, pred_len=pred_len,n_channels=n_channels)
+        train_loader, val_loader, test_loader, scaler = prepare_dataloaders('3d', batch_size=batch_size, seq_len=seq_len, pred_len=pred_len,n_channels=n_channels)
 
         model = DLinear(Config(seq_len=seq_len, pred_len=pred_len, n_channels=n_channels, lr=lr))
         model.cuda()

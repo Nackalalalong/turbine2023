@@ -19,10 +19,10 @@ MODELS = ['nlinear', 'dlinear', 'jtft']
 
 # from tuning
 class NLinearTuneResult:
-    best_lr = 0.00017278732761833284
-    best_batchsize = 32
+    best_lr = 0.000467785952240407
+    best_batchsize = 64
 
 
 class DLinearTuneResult:
-    best_lr = 0.00019680701995431586
-    best_batchsize = 64
+    best_lr = 0.00036642856489512316
+    best_batchsize = 32
