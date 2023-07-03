@@ -164,6 +164,7 @@ def main(
 
                 model = build_model(model_name, config)
                 model = model.load_from_checkpoint(checkpoint_path, config=config)
+                model.cuda()
                 model.freeze()
                 model.eval()
 

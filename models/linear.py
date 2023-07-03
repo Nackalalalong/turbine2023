@@ -17,6 +17,7 @@ class LinearTrainBehavior(L.LightningModule):
         self.pred_len = config.pred_len
         self.n_channels = config.n_channels
         self.lr = config.lr 
+        self.log_grad = config.log_grad
 
         self.validation_step_losses = []
         self.training_step_losses = []
@@ -74,6 +75,14 @@ class LinearTrainBehavior(L.LightningModule):
         optimizer = torch.optim.Adam(self.parameters(), lr=self.lr)
         scheduler = StepLR(optimizer, step_size=5, gamma=0.8)
         return {'optimizer': optimizer, 'lr_scheduler': scheduler }
+    
+    def on_after_backward(self):
+        if self.log_grad:
+            global_step = self.global_step
+            for name, param in self.named_parameters():
+                self.logger.experiment.add_histogram(name, param, global_step)
+                if param.requires_grad:
+                    self.logger.experiment.add_histogram(f"{name}_grad", param.grad, global_step)
     
     def predict_step(self, batch, batch_idx, dataloader_idx=0):
         x,y = self.extract_batch(batch)

@@ -6,6 +6,7 @@ class Config:
     pred_len: int
     n_channels: int
     lr: int
+    log_grad: bool = False
 
 
 H_LIST = [24, 48, 72, 96, 120, 144, 168, 192, 336, 504, 672, 720]

@@ -49,14 +49,16 @@ def train(
         enable_progress_bar: bool = True,
         enable_model_summary: bool = True,
         skip_done: bool = False,
-        eval_after_train: bool = False
+        eval_after_train: bool = False,
+        log_grad: bool = False
         ):
 
     config = Config(
         seq_len=seq_len,
         pred_len=pred_len,
         n_channels=n_channels,
-        lr=lr
+        lr=lr,
+        log_grad=log_grad
     )
 
     version_dir = os.path.join(tensorboard_save_dir, name, version)
@@ -170,8 +172,9 @@ def main(
     parallel: bool = False,
     skip_done: bool = False,
     max_workers: int = 4,
-    tensorboard_save_dir: str = 'exp',
-    eval_after_train: bool = False
+    tensorboard_save_dir: str = 'dev',
+    eval_after_train: bool = False,
+    log_grad: bool = False
 ):
     if model not in ['all'] + MODELS:
         raise 'invalid model'
@@ -215,7 +218,8 @@ def main(
                         enable_model_summary=False,
                         skip_done=skip_done,
                         tensorboard_save_dir=tensorboard_save_dir,
-                        eval_after_train=eval_after_train
+                        eval_after_train=eval_after_train,
+                        log_grad=log_grad
                     )
 
                     future = executor.submit(
@@ -250,7 +254,8 @@ def main(
                     version=f'{dataset_name}/H{H}-T{T}',
                     skip_done=skip_done,
                     tensorboard_save_dir=tensorboard_save_dir,
-                    eval_after_train=eval_after_train
+                    eval_after_train=eval_after_train,
+                    log_grad=log_grad
                 )
 
 
@@ -270,7 +275,8 @@ def main(
                 tensorboard_save_dir=tensorboard_save_dir,
                 eval_after_train=eval_after_train,
                 version=f'{dataset_name}/H{seq_len}-T{pred_len}',
-                skip_done=skip_done
+                skip_done=skip_done,
+                log_grad=log_grad
             )
 
 if __name__ == '__main__':
