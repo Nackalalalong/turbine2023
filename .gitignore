@@ -4,4 +4,6 @@ cache
 **/__pycache__/
 tuning/**/checkpoints/
 exp
-reconstructed
+reconstructed/values
+reconstructed/individuals
+grad
