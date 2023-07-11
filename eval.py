@@ -9,7 +9,6 @@ import pickle
 from tqdm import tqdm
 import torch
 from torch.utils.data import DataLoader
-from typing import Literal
 
 from models.linear import NLinear, DLinear
 from utils import extract_H_T, create_dirs_if_not_exist

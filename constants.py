@@ -8,6 +8,7 @@ class Config:
     lr: int
     log_grad: bool = False
 
+N_CHANNEL = 3
 
 H_LIST = [24, 48, 72, 96, 120, 144, 168, 192, 336, 504, 672, 720]
 T_LIST = [96, 192, 336, 720]
@@ -18,12 +19,8 @@ TEST_SIZE = 0.2
 DATASETS = ['1d', '2d', '3d']
 
 # from tuning
-class NLinearTuneResult:
-    best_lr = 0.000467785952240407
-    best_batchsize = 64
-
-
-class DLinearTuneResult:
-    best_lr = 0.00036642856489512316
-    best_batchsize = 32
-
+TUNE_RESULT = {
+    'nlinear': {'lr': 0.000467785952240407, 'batch_size': 64},
+    'dlinear': {'lr': 0.00036642856489512316, 'batch_size': 32},
+    'tide': {'lr': 0.00036490350684871407, 'batch_size': 128, 'hidden_dim': 64, 'encoder_layer_num': 3, 'decoder_layer_num': 1, 'temporal_decoder_hidden': 32, 'decoder_output_dim': 8, 'dropout_rate': 0.2}
+}

@@ -22,7 +22,7 @@ seq_len = H_LIST[len(H_LIST)//2]
 pred_len = T_LIST[len(T_LIST)//2]
 
 n_channels = 3
-max_epochs = 20
+max_epochs = 10
 
 tensorboard_dir = os.path.abspath('./tuning')
 

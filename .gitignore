@@ -2,7 +2,7 @@ lightning_logs
 dev
 cache
 **/__pycache__/
-tuning/**/checkpoints/
+tuning/
 exp
 reconstructed/values
 reconstructed/individuals

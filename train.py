@@ -24,7 +24,7 @@ import warnings
 warnings.filterwarnings('ignore')
 
 from constants import (DATASETS, H_LIST, T_LIST, Config,
-                       DLinearTuneResult, NLinearTuneResult)
+                       TUNE_RESULT, N_CHANNEL)
 from data import prepare_dataloaders
 from models.linear import DLinear, NLinear
 from utils import read_event_values, create_dirs_if_not_exist, get_model_class, get_config_class
@@ -32,18 +32,13 @@ from utils import read_event_values, create_dirs_if_not_exist, get_model_class, 
 
 app = typer.Typer(pretty_exceptions_enable=False)
 
-n_channels = 3
-
 def train(
         model_name: str,  
         data: str,
         max_epochs: int,
-        batch_size: int,
         name: str,
         seq_len: int,
         pred_len: int,
-        n_channels: int,
-        lr: int,
         tensorboard_save_dir: str,
         version: str = None,
         enable_progress_bar: bool = True,
@@ -55,13 +50,17 @@ def train(
     
     ModelClass = get_model_class(model_name)
     ConfigClass = get_config_class(model_name)
+    tune_result = TUNE_RESULT[model_name]
+
+    batch_size = tune_result['batch_size']
+    del tune_result['batch_size']
 
     config = ConfigClass(
         seq_len=seq_len,
         pred_len=pred_len,
-        n_channels=n_channels,
-        lr=lr,
-        log_grad=log_grad
+        n_channels=N_CHANNEL,
+        log_grad=log_grad,
+        **tune_result
     )
 
     version_dir = os.path.join(tensorboard_save_dir, name, version)
@@ -91,7 +90,7 @@ def train(
         batch_size=batch_size, 
         seq_len=seq_len, 
         pred_len=pred_len,
-        n_channels=n_channels
+        n_channels=N_CHANNEL
     )
     
     model: L.LightningModule = ModelClass(config)
@@ -183,18 +182,6 @@ def main(
     if data not in ['all'] + DATASETS:
         raise 'invalid data'
     
-    lr = None
-    batch_size = None
-    if model == 'nlinear':
-        lr = NLinearTuneResult.best_lr
-        batch_size = NLinearTuneResult.best_batchsize
-    elif model == 'dlinear':
-        lr = DLinearTuneResult.best_lr
-        batch_size = DLinearTuneResult.best_batchsize
-    elif model == 'tide':
-        lr = 1e-4
-        batch_size = 32
-    
     if long_run:
         dataset_names = translate_data(data)
         args_list = itertools.product(dataset_names, H_LIST, T_LIST)
@@ -208,12 +195,9 @@ def main(
                         model,
                         data=dataset_name,
                         max_epochs=max_epochs,
-                        batch_size=batch_size,
                         name=model,
                         seq_len=H,
                         pred_len=T,
-                        n_channels=n_channels,
-                        lr=lr,
                         version=f'{dataset_name}/H{H}-T{T}',
                         enable_progress_bar=False,
                         enable_model_summary=False,
@@ -244,12 +228,9 @@ def main(
                     model,
                     data=dataset_name,
                     max_epochs=max_epochs,
-                    batch_size=batch_size,
                     name=model,
                     seq_len=H,
                     pred_len=T,
-                    n_channels=n_channels,
-                    lr=lr,
                     enable_progress_bar=False,
                     enable_model_summary=False,
                     version=f'{dataset_name}/H{H}-T{T}',
@@ -267,10 +248,7 @@ def main(
                 model,
                 data=dataset_name,
                 max_epochs=max_epochs,
-                batch_size=batch_size,
                 name=model,
-                n_channels=n_channels,
-                lr=lr,
                 seq_len=seq_len,
                 pred_len=pred_len,
                 tensorboard_save_dir=tensorboard_save_dir,
