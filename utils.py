@@ -4,7 +4,9 @@ from tensorboard.backend.event_processing import event_accumulator
 import json
 import itertools
 
-from constants import H_LIST, T_LIST
+from constants import H_LIST, T_LIST, Config
+from models.linear import NLinear, DLinear
+from models.tide import TiDE, TiDEConfig
 
 
 def extract_H_T(H_T_dirname: str) -> Tuple[int,int]:
@@ -50,3 +52,33 @@ def get_h_t_combination():
         names.append(f"H{h}-T{t}")
 
     return names
+
+
+def get_model_class(model_name: str):
+    if model_name == 'dlinear':
+        return DLinear
+    if model_name == 'nlinear':
+        return NLinear
+    if model_name == 'tide':
+        return TiDE
+    raise "invalid model name"
+
+
+def get_config_class(model_name: str):
+    if model_name == 'dlinear':
+        return Config
+    if model_name == 'nlinear':
+        return Config
+    if model_name == 'tide':
+        return TiDEConfig
+    raise "invalid model name"
+
+
+def build_model(
+        model_name: str,
+        **config_kwargs
+    ):
+    ModelClass = get_model_class(model_name)
+    ConfigClass = get_config_class(model_name)
+
+    return ModelClass(ConfigClass(**config_kwargs))

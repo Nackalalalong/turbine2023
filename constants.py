@@ -27,3 +27,4 @@ class NLinearTuneResult:
 class DLinearTuneResult:
     best_lr = 0.00036642856489512316
     best_batchsize = 32
+
