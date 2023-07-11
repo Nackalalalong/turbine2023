@@ -16,7 +16,6 @@ VAL_SIZE = 0.25
 TEST_SIZE = 0.2
 
 DATASETS = ['1d', '2d', '3d']
-MODELS = ['nlinear', 'dlinear', 'jtft']
 
 # from tuning
 class NLinearTuneResult:

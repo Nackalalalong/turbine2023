@@ -8,21 +8,24 @@ from constants import Config
 from models.base import ModelBehavior
 
 
+torch.set_default_dtype(torch.float64)
+
 @dataclass
 class TiDEConfig(Config):
-    r_hat: int = 4
+    temporal_width: int = 4
     decoder_output_dim: int = 4
     hidden_dim: int = 256
     encoder_layer_num: int = 2
     decoder_layer_num: int = 2
     temporal_decoder_hidden: int = 64
+    dropout_rate: float = 0.2
 
 # B: Batchsize
 # L: Lookback
 # H: Horizon
 # N: the number of series
 # r: the number of covariates for each series
-# r_hat: temporalWidth in the paper, i.e., \hat{r} << r
+# temporal_width: temporalWidth in the paper, i.e., \hat{r} << r
 # p: decoderOutputDim in the paper
 # hidden_dim: hiddenSize in the paper
 
@@ -48,13 +51,13 @@ class ResidualBlock(nn.Module):
 
 
 class Encoder(nn.Module):
-    def __init__(self, layer_num, hidden_dim, r_hat, L, H):
+    def __init__(self, layer_num, hidden_dim, seq_len, pred_len, dropout_rate):
         super(Encoder, self).__init__()
         self.encoder_layer_num = layer_num
-        self.horizon = H
-        self.first_encoder_layer = ResidualBlock(L + 1 + (L + H) * r_hat, hidden_dim, hidden_dim)
+        self.horizon = pred_len
+        self.first_encoder_layer = ResidualBlock(seq_len, hidden_dim, hidden_dim, dropout_rate)
         self.other_encoder_layers = nn.ModuleList([
-            ResidualBlock(hidden_dim, hidden_dim, hidden_dim) for _ in range(layer_num-1)
+            ResidualBlock(hidden_dim, hidden_dim, hidden_dim, dropout_rate) for _ in range(layer_num-1)
             ])
 
     def forward(self, x):
@@ -64,27 +67,27 @@ class Encoder(nn.Module):
         e = x
 
         # Dense Encoder
-        e = self.first_encoder_layer(e)  # [B*N,L+1+(L+H)*r_hat] -> [B*N,hidden_dim]
+        e = self.first_encoder_layer(e)  # [B*N,L] -> [B*N,hidden_dim]
         for i in range(self.encoder_layer_num-1):
             e = self.other_encoder_layers[i](e)  # [B*N,hidden_dim] -> [B*N,hidden_dim]
 
-        # e: [B*N,hidden_dim], covariates_future: [B*N,H,r_hat]
+        # e: [B*N,hidden_dim], covariates_future: [B*N,H,temporal_width]
         return e
 
 
 class Decoder(nn.Module):
-    def __init__(self, layer_num, hidden_dim, r_hat, pred_len, decoder_output_dim, temporal_decoder_hidden):
+    def __init__(self, layer_num, hidden_dim, pred_len, decoder_output_dim, temporal_decoder_hidden, dropout_rate):
         super(Decoder, self).__init__()
         self.decoder_layer_num = layer_num
         self.horizon = pred_len
-        self.last_decoder_layer = ResidualBlock(hidden_dim, hidden_dim, decoder_output_dim * pred_len)
+        self.last_decoder_layer = ResidualBlock(hidden_dim, hidden_dim, decoder_output_dim * pred_len, dropout_rate)
         self.other_decoder_layers = nn.ModuleList([
-                ResidualBlock(hidden_dim, hidden_dim, hidden_dim) for _ in range(layer_num-1)
+                ResidualBlock(hidden_dim, hidden_dim, hidden_dim, dropout_rate) for _ in range(layer_num-1)
             ])
-        self.temporaldecoder = ResidualBlock(decoder_output_dim + r_hat, temporal_decoder_hidden, 1)
+        self.temporaldecoder = ResidualBlock(decoder_output_dim, temporal_decoder_hidden, 1, dropout_rate)
 
     def forward(self, e):
-        # e: [B*N,hidden_dim], covariates_future: [B*N,H,r_hat]
+        # e: [B*N,hidden_dim], covariates_future: [B*N,H,temporal_width]
 
         # Dense Decoder
         for i in range(self.decoder_layer_num-1):
@@ -98,7 +101,7 @@ class Decoder(nn.Module):
         out = matrixD
 
         # Temporal Decoder
-        out = self.temporaldecoder(out)  # [B*N,H,p+r_hat] -> [B*N,H,1]
+        out = self.temporaldecoder(out)  # [B*N,H,p+temporal_width] -> [B*N,H,1]
         
         # out: [B*N,H,1]
         return out
@@ -116,13 +119,13 @@ class TiDE(ModelBehavior):
         hidden_dim = config.hidden_dim
         temporal_decoder_hidden = config.temporal_decoder_hidden
         decoder_output_dim = config.decoder_output_dim
-        r_hat = config.r_hat
+        dropout_rate = config.dropout_rate
 
         seq_len = config.seq_len
         pred_len = config.pred_len
 
-        self.encoder = Encoder(encoder_layer_num, hidden_dim, r_hat, seq_len, pred_len)
-        self.decoder = Decoder(decoder_layer_num, hidden_dim, r_hat, pred_len, decoder_output_dim, temporal_decoder_hidden)
+        self.encoder = Encoder(encoder_layer_num, hidden_dim, seq_len, pred_len, dropout_rate)
+        self.decoder = Decoder(decoder_layer_num, hidden_dim, pred_len, decoder_output_dim, temporal_decoder_hidden, dropout_rate)
         self.residual = nn.Linear(seq_len, pred_len)
 
     def forward(self, x):

@@ -23,11 +23,11 @@ import warnings
 
 warnings.filterwarnings('ignore')
 
-from constants import (DATASETS, H_LIST, MODELS, T_LIST, Config,
+from constants import (DATASETS, H_LIST, T_LIST, Config,
                        DLinearTuneResult, NLinearTuneResult)
 from data import prepare_dataloaders
 from models.linear import DLinear, NLinear
-from utils import read_event_values, create_dirs_if_not_exist
+from utils import read_event_values, create_dirs_if_not_exist, get_model_class, get_config_class
 
 
 app = typer.Typer(pretty_exceptions_enable=False)
@@ -35,7 +35,7 @@ app = typer.Typer(pretty_exceptions_enable=False)
 n_channels = 3
 
 def train(
-        ModelClass,  
+        model_name: str,  
         data: str,
         max_epochs: int,
         batch_size: int,
@@ -52,8 +52,11 @@ def train(
         eval_after_train: bool = False,
         log_grad: bool = False
         ):
+    
+    ModelClass = get_model_class(model_name)
+    ConfigClass = get_config_class(model_name)
 
-    config = Config(
+    config = ConfigClass(
         seq_len=seq_len,
         pred_len=pred_len,
         n_channels=n_channels,
@@ -176,23 +179,21 @@ def main(
     eval_after_train: bool = False,
     log_grad: bool = False
 ):
-    if model not in ['all'] + MODELS:
-        raise 'invalid model'
     
     if data not in ['all'] + DATASETS:
         raise 'invalid data'
     
     lr = None
     batch_size = None
-    ModelClass = None
     if model == 'nlinear':
         lr = NLinearTuneResult.best_lr
         batch_size = NLinearTuneResult.best_batchsize
-        ModelClass = NLinear
     elif model == 'dlinear':
         lr = DLinearTuneResult.best_lr
         batch_size = DLinearTuneResult.best_batchsize
-        ModelClass = DLinear
+    elif model == 'tide':
+        lr = 1e-4
+        batch_size = 32
     
     if long_run:
         dataset_names = translate_data(data)
@@ -204,7 +205,7 @@ def main(
 
                 for dataset_name, H, T in args_list:
                     kwargs = dict(
-                        ModelClass=ModelClass,
+                        model,
                         data=dataset_name,
                         max_epochs=max_epochs,
                         batch_size=batch_size,
@@ -240,7 +241,7 @@ def main(
             for dataset_name,H,T in itertools.product(dataset_names, H_LIST, T_LIST):
 
                 train(
-                    ModelClass,
+                    model,
                     data=dataset_name,
                     max_epochs=max_epochs,
                     batch_size=batch_size,
@@ -263,7 +264,7 @@ def main(
 
         for dataset_name in translate_data(data):      
             train(
-                ModelClass,
+                model,
                 data=dataset_name,
                 max_epochs=max_epochs,
                 batch_size=batch_size,
