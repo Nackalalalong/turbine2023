@@ -9,3 +9,4 @@ python .\train.py --model dlinear --data 1d --seq-len 504 --pred-len 192 --tenso
 # from exp
 velocity is more difficult to predict compared to the other 2 features
 the highest number of time step in T is around 20-30 before it starts rising
+tide is the most stable according to the result of how_far/level_data

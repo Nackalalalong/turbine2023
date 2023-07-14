@@ -11,7 +11,7 @@ import torch
 from torch.utils.data import DataLoader
 
 from models.linear import NLinear, DLinear
-from utils import extract_H_T, create_dirs_if_not_exist
+from utils import extract_H_T, create_dirs_if_not_exist, build_model
 from constants import Config, DATASETS, H_LIST, T_LIST
 from data import prepare_dataloaders
 
@@ -28,24 +28,17 @@ warnings.filterwarnings('ignore')
 app = typer.Typer(pretty_exceptions_enable=False)
 
 
-def build_model(model_name: str, config: Config) -> L.LightningModule:
-    if model_name == 'nlinear':
-        return NLinear(config=config)
-    elif model_name == 'dlinear':
-        return DLinear(config=config)
-    
+def load_model_for_eval(ht_dir: str, model_name: str, data: str):
 
-def load_model_for_eval(ht_dir: str, model_name: str):
     checkpoint_name = listdir(join(ht_dir, 'checkpoints'))[0]
     checkpoint_path = join(ht_dir, 'checkpoints', checkpoint_name)
 
     with open(join(ht_dir, 'config.json')) as f:
         config_dict = json.load(f)
     del config_dict['batch_size']
-    config = Config(**config_dict)
 
-    model = build_model(model_name, config)
-    model = model.load_from_checkpoint(checkpoint_path, config=config)
+    model = build_model(model_name, data, **config_dict)
+    model = model.load_from_checkpoint(checkpoint_path, config=model.config)
     model.cuda()
     model.freeze()
     model.eval()
@@ -224,14 +217,14 @@ def resconstruct(
 @app.command()
 def analyse_how_far(
         tensorbaord_save_dir: str = 'exp',
-        level: str = 'T',
+        level: str = 'data',
         log_x: bool = False
         ):
 
     def get_mses(H: int, T: int, model_name: str, data: str, data_dir: str):
         ht_name = f"H{H}-T{T}"
         ht_dir = join(data_dir, ht_name)
-        model = load_model_for_eval(ht_dir, model_name)
+        model = load_model_for_eval(ht_dir, model_name, data)
 
         _, _, test_loader, _ = prepare_dataloaders(
             data, 
@@ -317,6 +310,8 @@ def analyse_how_far(
         def iterate_exp_combinations(tensorbaord_save_dir: str):
             for data in DATASETS:
                 for model_name in listdir(tensorbaord_save_dir):
+                    if model_name != 'tide-wo-a':
+                        continue
                     model_dir = join(tensorbaord_save_dir, model_name)
                     data_dir = join(model_dir, data)
 

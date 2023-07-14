@@ -3,9 +3,11 @@ import os
 from tensorboard.backend.event_processing import event_accumulator
 import json
 import itertools
+import copy
 
-from constants import H_LIST, T_LIST, Config
+from constants import H_LIST, T_LIST, Config, TUNE_RESULT
 from models.linear import NLinear, DLinear
+from models.base import ModelBehavior
 from models.tide import TiDE, TiDEConfig
 
 
@@ -59,7 +61,7 @@ def get_model_class(model_name: str):
         return DLinear
     if model_name == 'nlinear':
         return NLinear
-    if model_name == 'tide':
+    if 'tide' in model_name:
         return TiDE
     raise "invalid model name"
 
@@ -69,16 +71,27 @@ def get_config_class(model_name: str):
         return Config
     if model_name == 'nlinear':
         return Config
-    if model_name == 'tide':
+    if 'tide' in model_name:
         return TiDEConfig
     raise "invalid model name"
 
 
+def get_tune_result(model_name: str):
+    return copy.deepcopy(TUNE_RESULT[model_name])
+
+
 def build_model(
         model_name: str,
+        data: str = None,
         **config_kwargs
-    ):
+    ) -> ModelBehavior:
     ModelClass = get_model_class(model_name)
     ConfigClass = get_config_class(model_name)
 
-    return ModelClass(ConfigClass(**config_kwargs))
+    config = ConfigClass(**config_kwargs)
+    if model_name == 'tide-w-a':
+        diameter = int(data[0])
+        assert diameter in [1,2,3]
+        config.diameter = diameter
+
+    return ModelClass(config)

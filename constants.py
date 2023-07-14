@@ -22,5 +22,6 @@ DATASETS = ['1d', '2d', '3d']
 TUNE_RESULT = {
     'nlinear': {'lr': 0.000467785952240407, 'batch_size': 64},
     'dlinear': {'lr': 0.00036642856489512316, 'batch_size': 32},
-    'tide': {'lr': 0.00036490350684871407, 'batch_size': 128, 'hidden_dim': 64, 'encoder_layer_num': 3, 'decoder_layer_num': 1, 'temporal_decoder_hidden': 32, 'decoder_output_dim': 8, 'dropout_rate': 0.2}
+    'tide-wo-a': {'lr': 0.00036490350684871407, 'batch_size': 128, 'hidden_dim': 64, 'encoder_layer_num': 3, 'decoder_layer_num': 1, 'temporal_decoder_hidden': 32, 'decoder_output_dim': 8, 'dropout_rate': 0.2},
+    'tide-w-a': {'lr': 0.00036490350684871407, 'batch_size': 128, 'hidden_dim': 64, 'encoder_layer_num': 3, 'decoder_layer_num': 1, 'temporal_decoder_hidden': 32, 'decoder_output_dim': 8, 'dropout_rate': 0.2}
 }

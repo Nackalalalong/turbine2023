@@ -132,7 +132,7 @@ def tune_DLinear():
     print(analysis)
 
 
-@app.command(name='tide')
+@app.command(name='tide-wo-a')
 def tune_TiDE():
 
     def train(config):
@@ -149,7 +149,7 @@ def tune_TiDE():
         model = TiDE(TiDEConfig(seq_len=seq_len, pred_len=pred_len, n_channels=n_channels, lr=lr, **model_config))
         model.cuda()
 
-        logger = TensorBoardLogger(save_dir=tensorboard_dir, name='tide')
+        logger = TensorBoardLogger(save_dir=tensorboard_dir, name='tide-wo-a')
 
         metrics = {"val_loss": "val_loss", 'train_loss': 'train_loss'}
         tune_cb = _TuneReportCallback(metrics, on="validation_end")
@@ -189,7 +189,70 @@ def tune_TiDE():
         mode="min",
         config=tune_config,
         num_samples=num_samples,
-        name="tune_tide"
+        name="tune_tide-wo-a"
+    )
+
+    print(analysis)
+
+
+@app.command(name='tide-w-a')
+def tune_TiDE():
+
+    def train(config):
+
+        batch_size = config['batch_size']
+        lr = config['lr']
+
+        train_loader, val_loader, test_loader, scaler = prepare_dataloaders('3d', batch_size=batch_size, seq_len=seq_len, pred_len=pred_len,n_channels=n_channels)
+
+        model_config = dict(config)
+        del model_config['lr']
+        del model_config['batch_size']
+
+        model = TiDE(TiDEConfig(seq_len=seq_len, pred_len=pred_len, n_channels=n_channels, lr=lr, diameter=3, **model_config))
+        model.cuda()
+
+        logger = TensorBoardLogger(save_dir=tensorboard_dir, name='tide-w-a')
+
+        metrics = {"val_loss": "val_loss", 'train_loss': 'train_loss'}
+        tune_cb = _TuneReportCallback(metrics, on="validation_end")
+
+        trainer = L.Trainer(
+            max_epochs=max_epochs,
+            callbacks=[tune_cb],
+            logger=logger,
+            enable_progress_bar=False
+        )
+        trainer.fit(model, train_loader, val_loader)
+
+    num_samples = 20
+
+    tune_config = {
+        "lr": tune.loguniform(1e-5, 1e-2),
+        "batch_size": tune.choice([32, 64, 128]),
+        'hidden_dim': tune.choice([64,128, 256, 512,]),
+        'encoder_layer_num': tune.choice([1,2,3]),
+        'decoder_layer_num': tune.choice([1,2,3]),
+        'temporal_decoder_hidden': tune.choice([32,64,128]),
+        'decoder_output_dim': tune.choice([4,8,16,32]),
+        'dropout_rate': tune.choice([0, 0.1, 0.2, 0.3, 0.5])
+    }
+
+    trainable = tune.with_parameters(
+        train
+    )
+
+    analysis = tune.run(
+        trainable,
+        resources_per_trial={
+            "cpu": 1,
+            "gpu": 1
+        },
+        metric="val_loss",
+        mode="min",
+        config=tune_config,
+        num_samples=num_samples,
+        name="tune_tide-w-a"
     )
 
     print(analysis)

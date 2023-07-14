@@ -27,7 +27,7 @@ from constants import (DATASETS, H_LIST, T_LIST, Config,
                        TUNE_RESULT, N_CHANNEL)
 from data import prepare_dataloaders
 from models.linear import DLinear, NLinear
-from utils import read_event_values, create_dirs_if_not_exist, get_model_class, get_config_class
+from utils import read_event_values, create_dirs_if_not_exist, get_model_class, get_config_class, get_tune_result
 
 
 app = typer.Typer(pretty_exceptions_enable=False)
@@ -50,7 +50,7 @@ def train(
     
     ModelClass = get_model_class(model_name)
     ConfigClass = get_config_class(model_name)
-    tune_result = TUNE_RESULT[model_name]
+    tune_result = get_tune_result(model_name)
 
     batch_size = tune_result['batch_size']
     del tune_result['batch_size']
@@ -62,6 +62,10 @@ def train(
         log_grad=log_grad,
         **tune_result
     )
+
+    if model_name == 'tide-w-a':
+        config.diameter = int(data[0])
+        assert config.diameter in [1,2,3]
 
     version_dir = os.path.join(tensorboard_save_dir, name, version)
         
@@ -192,7 +196,7 @@ def main(
 
                 for dataset_name, H, T in args_list:
                     kwargs = dict(
-                        model,
+                        model_name=model,
                         data=dataset_name,
                         max_epochs=max_epochs,
                         name=model,
