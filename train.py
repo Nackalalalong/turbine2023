@@ -4,6 +4,7 @@ import os
 from datetime import datetime
 import json
 import shutil
+import random
 
 import lightning as L
 import torch
@@ -188,7 +189,9 @@ def main(
     
     if long_run:
         dataset_names = translate_data(data)
-        args_list = itertools.product(dataset_names, H_LIST, T_LIST)
+        args_list = list(itertools.product(dataset_names, H_LIST, T_LIST))
+        random.shuffle(args_list)
+
 
         if parallel:
             with concurrent.futures.ProcessPoolExecutor(max_workers=max_workers) as executor:

@@ -310,7 +310,7 @@ def analyse_how_far(
         def iterate_exp_combinations(tensorbaord_save_dir: str):
             for data in DATASETS:
                 for model_name in listdir(tensorbaord_save_dir):
-                    if model_name != 'tide-wo-a':
+                    if model_name != 'tide-w-a':
                         continue
                     model_dir = join(tensorbaord_save_dir, model_name)
                     data_dir = join(model_dir, data)
