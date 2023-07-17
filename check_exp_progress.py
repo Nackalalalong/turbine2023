@@ -4,7 +4,6 @@ from constants import H_LIST, T_LIST, DATASETS
 
 from utils import read_event_values
 
-
 app = typer.Typer()
 
 
@@ -18,7 +17,7 @@ def main(dir: str = 'exp', max_epochs: int = 20):
     for model in models:
         model_dir = path.join(dir, model)
 
-        print('*'*20)
+        print('*' * 20)
         done_count = 0
         for data in listdir(model_dir):
             data_dir = path.join(model_dir, data)

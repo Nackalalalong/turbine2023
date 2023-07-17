@@ -10,6 +10,7 @@ class NLinear(ModelBehavior):
     """
     adapts from https://github.com/cure-lab/LTSF-Linear/blob/main/models/NLinear.py
     """
+
     def __init__(self, config: Config):
         super(NLinear, self).__init__(config)
 
@@ -19,25 +20,27 @@ class NLinear(ModelBehavior):
 
     def forward(self, x):
         # x: [Batch, Input length, Channel]
-        seq_last = x[:,-1:,:].detach()
+        seq_last = x[:, -1:, :].detach()
         x = x - seq_last
 
-        output = torch.zeros([x.size(0),self.pred_len,x.size(2)],dtype=x.dtype).to(x.device)
+        output = torch.zeros([x.size(0), self.pred_len, x.size(2)], dtype=x.dtype).to(x.device)
         for i in range(self.n_channels):
-            output[:,:,i] = self.linear[i](x[:,:,i])
+            output[:, :, i] = self.linear[i](x[:, :, i])
         x = output
 
         x = x + seq_last
-        return x # [Batch, Output length, Channel]
-    
+        return x  # [Batch, Output length, Channel]
+
 
 ####### DLinear ##############
 # from https://github.com/cure-lab/LTSF-Linear/blob/main/models/DLinear.py
+
 
 class moving_avg(nn.Module):
     """
     Moving average block to highlight the trend of time series
     """
+
     def __init__(self, kernel_size, stride):
         super(moving_avg, self).__init__()
         self.kernel_size = kernel_size
@@ -57,6 +60,7 @@ class series_decomp(nn.Module):
     """
     Series decomposition block
     """
+
     def __init__(self, kernel_size):
         super(series_decomp, self).__init__()
         self.moving_avg = moving_avg(kernel_size, stride=1)
@@ -66,10 +70,12 @@ class series_decomp(nn.Module):
         res = x - moving_mean
         return res, moving_mean
 
+
 class DLinear(ModelBehavior):
     """
     Decomposition-Linear
     """
+
     def __init__(self, config: Config):
         super(DLinear, self).__init__(config)
 
@@ -79,21 +85,25 @@ class DLinear(ModelBehavior):
 
         self.Linear_Seasonal = nn.ModuleList()
         self.Linear_Trend = nn.ModuleList()
-        
+
         for i in range(self.n_channels):
-            self.Linear_Seasonal.append(nn.Linear(self.seq_len,self.pred_len, dtype=torch.float64))
-            self.Linear_Trend.append(nn.Linear(self.seq_len,self.pred_len, dtype=torch.float64))
+            self.Linear_Seasonal.append(nn.Linear(self.seq_len, self.pred_len, dtype=torch.float64))
+            self.Linear_Trend.append(nn.Linear(self.seq_len, self.pred_len, dtype=torch.float64))
 
     def forward(self, x):
         # x: [Batch, Input length, Channel]
         seasonal_init, trend_init = self.decompsition(x)
-        seasonal_init, trend_init = seasonal_init.permute(0,2,1), trend_init.permute(0,2,1)
+        seasonal_init, trend_init = seasonal_init.permute(0, 2, 1), trend_init.permute(0, 2, 1)
 
-        seasonal_output = torch.zeros([seasonal_init.size(0),seasonal_init.size(1),self.pred_len],dtype=seasonal_init.dtype).to(seasonal_init.device)
-        trend_output = torch.zeros([trend_init.size(0),trend_init.size(1),self.pred_len],dtype=trend_init.dtype).to(trend_init.device)
+        seasonal_output = torch.zeros(
+            [seasonal_init.size(0), seasonal_init.size(1), self.pred_len],
+            dtype=seasonal_init.dtype).to(seasonal_init.device)
+        trend_output = torch.zeros(
+            [trend_init.size(0), trend_init.size(1), self.pred_len],
+            dtype=trend_init.dtype).to(trend_init.device)
         for i in range(self.n_channels):
-            seasonal_output[:,i,:] = self.Linear_Seasonal[i](seasonal_init[:,i,:])
-            trend_output[:,i,:] = self.Linear_Trend[i](trend_init[:,i,:])
+            seasonal_output[:, i, :] = self.Linear_Seasonal[i](seasonal_init[:, i, :])
+            trend_output[:, i, :] = self.Linear_Trend[i](trend_init[:, i, :])
 
         x = seasonal_output + trend_output
-        return x.permute(0,2,1) # to [Batch, Output length, Channel]
+        return x.permute(0, 2, 1)  # to [Batch, Output length, Channel]

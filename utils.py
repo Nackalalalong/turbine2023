@@ -11,8 +11,8 @@ from models.base import ModelBehavior
 from models.tide import TiDE, TiDEConfig
 
 
-def extract_H_T(H_T_dirname: str) -> Tuple[int,int]:
-    h,t = H_T_dirname.split('-')
+def extract_H_T(H_T_dirname: str) -> Tuple[int, int]:
+    h, t = H_T_dirname.split('-')
 
     return int(h[1:]), int(t[1:])
 
@@ -50,7 +50,7 @@ def create_dirs_if_not_exist(dir: str):
 
 def get_h_t_combination():
     names = []
-    for h,t in itertools.product(H_LIST, T_LIST):
+    for h, t in itertools.product(H_LIST, T_LIST):
         names.append(f"H{h}-T{t}")
 
     return names
@@ -80,18 +80,14 @@ def get_tune_result(model_name: str):
     return copy.deepcopy(TUNE_RESULT[model_name])
 
 
-def build_model(
-        model_name: str,
-        data: str = None,
-        **config_kwargs
-    ) -> ModelBehavior:
+def build_model(model_name: str, data: str = None, **config_kwargs) -> ModelBehavior:
     ModelClass = get_model_class(model_name)
     ConfigClass = get_config_class(model_name)
 
     config = ConfigClass(**config_kwargs)
     if model_name == 'tide-w-a':
         diameter = int(data[0])
-        assert diameter in [1,2,3]
+        assert diameter in [1, 2, 3]
         config.diameter = diameter
 
     return ModelClass(config)

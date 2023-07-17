@@ -1,0 +1,17 @@
+[style]
+based_on_style = google
+column_limit = 100
+indent_width = 4
+
+[flake8]
+max-line-length = 100
+exclude =
+    .git,
+    __pycache__,
+    data/,
+    models/,
+    notebooks/,
+    reports/,
+    results/,
+    .vscode/,
+    .idea/

@@ -16,7 +16,7 @@ class ModelBehavior(L.LightningModule):
         self.seq_len = config.seq_len
         self.pred_len = config.pred_len
         self.n_channels = config.n_channels
-        self.lr = config.lr 
+        self.lr = config.lr
         self.log_grad = config.log_grad
 
         self.validation_step_losses = []
@@ -26,10 +26,10 @@ class ModelBehavior(L.LightningModule):
     def extract_batch(self, batch):
         x, y = batch
 
-        return x.cuda() , y.cuda()
+        return x.cuda(), y.cuda()
 
     def training_step(self, batch, batch_idx):
-        x,y = self.extract_batch(batch)
+        x, y = self.extract_batch(batch)
 
         y_hat = self.forward(x)
         loss = F.mse_loss(y_hat, y)
@@ -37,16 +37,16 @@ class ModelBehavior(L.LightningModule):
         self.log('train_loss_step', loss, prog_bar=True)
 
         return loss
-    
+
     def on_train_epoch_end(self):
         losses = self.training_step_losses
         avg_loss = sum(losses) / len(losses)
-        self.logger.experiment.add_scalars('loss', {'train': avg_loss}, self.current_epoch) 
+        self.logger.experiment.add_scalars('loss', {'train': avg_loss}, self.current_epoch)
         self.log('train_loss', avg_loss, prog_bar=True, logger=False)
         self.training_step_losses.clear()
-    
+
     def validation_step(self, batch, batch_idx):
-        x,y = self.extract_batch(batch)
+        x, y = self.extract_batch(batch)
         logits = self.forward(x)
         loss = F.mse_loss(logits, y)
         self.validation_step_losses.append(loss.item())
@@ -54,12 +54,12 @@ class ModelBehavior(L.LightningModule):
     def on_validation_epoch_end(self):
         losses = self.validation_step_losses
         avg_loss = sum(losses) / len(losses)
-        self.logger.experiment.add_scalars('loss', {'val': avg_loss}, self.current_epoch) 
+        self.logger.experiment.add_scalars('loss', {'val': avg_loss}, self.current_epoch)
         self.log('val_loss', avg_loss, prog_bar=True, logger=False)
         self.validation_step_losses.clear()
 
     def test_step(self, batch, batch_idx):
-        x,y = self.extract_batch(batch)
+        x, y = self.extract_batch(batch)
 
         y_hat = self.forward(x)
         loss = F.mse_loss(y_hat, y)
@@ -74,8 +74,8 @@ class ModelBehavior(L.LightningModule):
     def configure_optimizers(self):
         optimizer = torch.optim.Adam(self.parameters(), lr=self.lr)
         scheduler = StepLR(optimizer, step_size=5, gamma=0.8)
-        return {'optimizer': optimizer, 'lr_scheduler': scheduler }
-    
+        return {'optimizer': optimizer, 'lr_scheduler': scheduler}
+
     def on_after_backward(self):
         if self.log_grad:
             global_step = self.global_step
@@ -83,8 +83,8 @@ class ModelBehavior(L.LightningModule):
                 self.logger.experiment.add_histogram(name, param, global_step)
                 if param.requires_grad:
                     self.logger.experiment.add_histogram(f"{name}_grad", param.grad, global_step)
-    
+
     def predict_step(self, batch, batch_idx, dataloader_idx=0):
-        x,y = self.extract_batch(batch)
+        x, y = self.extract_batch(batch)
 
         return self.forward(x)
