@@ -89,9 +89,9 @@ def main(model_name: str = 'nlinear',
     elif model_name == 'gcformer':
         tune_config = {
             "lr": tune.loguniform(1e-5, 1e-2),
-            "batch_size": tune.choice([32, 64, 128]),
+            "batch_size": tune.choice([16, 32, 64]),
             'n_heads': tune.choice([8, 16, 32]),
-            'd_model': tune.choice([64, 128, 256, 512]),
+            'd_model': tune.choice([64, 128, 256]),
             'd_ff': tune.choice([64, 128, 256, 512]),
             'patch_len': tune.choice([8, 16, 32]),
             'stride': tune.choice([8, 16, 32]),
@@ -99,7 +99,7 @@ def main(model_name: str = 'nlinear',
             'fc_dropout': tune.uniform(0, 0.5),
             'global_bias': tune.uniform(0, 0.5),
             'local_bias': tune.uniform(0, 0.5),
-            'h_channel': tune.choice([32, 64, 128, 256]),
+            'h_channel': tune.choice([32, 64]),
         }
     else:
         raise "invalid model name"
