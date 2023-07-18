@@ -2,7 +2,7 @@ from os import listdir, path
 import typer
 from constants import H_LIST, T_LIST, DATASETS
 
-from utils import read_event_values
+from utils.exp import read_event_values
 
 app = typer.Typer()
 

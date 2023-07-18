@@ -11,7 +11,7 @@ import torch
 from torch.utils.data import DataLoader
 
 from models.linear import NLinear, DLinear
-from utils import extract_H_T, create_dirs_if_not_exist, build_model
+from utils.exp import extract_H_T, create_dirs_if_not_exist, build_model
 from constants import Config, DATASETS, H_LIST, T_LIST
 from data import prepare_dataloaders
 

@@ -1,51 +1,99 @@
-from typing import Optional
-import torch
-from torch import nn
-from torch import Tensor
-import torch.nn.functional as F
-import numpy as np
 from dataclasses import dataclass
+from typing import Optional
 
+import torch
+from torch import Tensor, nn
+import torch.nn.functional as F
+
+from constants import Config
+# from layers.FourierCorrelation import *
+from layers.global_conv import FNO, Film, GConv
 from layers.PatchTST_backbone import PatchTST_backbone
 from layers.PatchTST_layers import series_decomp
-from layers.FourierCorrelation import *
-from layers.SelfAttention_Family import AttentionLayer, ProbAttention
-from layers.global_conv import Film, FNO, GConv
 from layers.RevIN import RevIN
+from layers.SelfAttention_Family import AttentionLayer, ProbAttention
 from layers.TCN import TemporalConvNet
 from models.autoformer import Autoformer
 from models.base import ModelBehavior
-from constants import Config
 
 
+torch.set_default_dtype(torch.float64)
+
+
+# https://github.com/zyj-111/GCformer/blob/main/run_longExp.py
 @dataclass(kw_only=True)
 class GCFormerConfig(Config):
+
+    e_layers: int = 3
+    n_heads: int = 8
+    d_model: int = 128
+    d_ff: int = 512
+    dropout: float = 0.05
+    fc_dropout: float = 0.05
+    head_dropout: float = 0
+    individual: int = 1
+    patch_len: int = 16
+    stride: int = 8
+    padding_patch: str = 'end'
+    local_revin: int = 0
+    affine: int = 0
+    subtract_last: int = 0
+    decomposition: int = 0
+    kernel_size: int = 25
+    context_len: int = None
+
+    enc_in: int = 3
+    norm_type: str = 'revin'
+    global_model: str = 'Gconv'
+    atten_bias: float = 0.5
+    TC_bias: float = 1
+    h_token: int = 512
+    h_channel: int = 32
+
     max_seq_len: Optional[int] = 1024
     d_k: Optional[int] = None
+    d_v: Optional[int] = None
+    norm: str = 'BatchNorm'
+    attn_dropout: float = 0.
+    act: str = "gelu"
+    key_padding_mask: bool = 'auto'
+    padding_var: Optional[int] = None
+    attn_mask: Optional[Tensor] = None
+    res_attention: bool = True
+    pre_norm: bool = False
+    store_attn: bool = False
+    pe: str = 'zeros'
+    learn_pe: bool = True
+    pretrain_head: bool = False
+    head_type = 'flatten'
+    verbose: bool = False
+
+    # autoformer
+    label_len: int = 48
+    moving_avg: int = 25
+    embed_type: int = 0
+    embed: str = 'timeF'
+    freq: str = 'h'
+    dec_in: int = 3
+    factor: int = 1
+    activation: str = 'gelu'
+    d_layers: int = 1
+    c_out: int = 3
+    local_bias: float = 0.5
+    global_bias: float = 0.5
+
+    # train
+    features: str = 'M'
+
+    def __post_init__(self):
+        self.context_len = self.seq_len
 
 
 class GCFormer(ModelBehavior):
 
-    def __init__(self,
-                 config: GCFormerConfig,
-                 d_v: Optional[int] = None,
-                 norm: str = 'BatchNorm',
-                 attn_dropout: float = 0.,
-                 act: str = "gelu",
-                 key_padding_mask: bool = 'auto',
-                 padding_var: Optional[int] = None,
-                 attn_mask: Optional[Tensor] = None,
-                 res_attention: bool = True,
-                 pre_norm: bool = False,
-                 store_attn: bool = False,
-                 pe: str = 'zeros',
-                 learn_pe: bool = True,
-                 pretrain_head: bool = False,
-                 head_type='flatten',
-                 verbose: bool = False,
-                 **kwargs):
+    def __init__(self, config: GCFormerConfig, **kwargs):
 
-        super().__init__()
+        super(GCFormer, self).__init__(config)
 
         # load parameters
         c_in = config.enc_in
@@ -85,6 +133,21 @@ class GCFormer(ModelBehavior):
 
         max_seq_len = config.max_seq_len
         d_k = config.d_k
+        d_v = config.d_v
+        norm = config.norm
+        attn_dropout = config.attn_dropout
+        act = config.act
+        key_padding_mask = config.key_padding_mask
+        padding_var = config.padding_var
+        attn_mask = config.attn_mask
+        res_attention = config.res_attention
+        pre_norm = config.pre_norm
+        store_attn = config.store_attn
+        pe = config.pe
+        learn_pe = config.learn_pe
+        pretrain_head = config.pretrain_head
+        head_type = config.head_type
+        verbose = config.verbose
 
         # model
         self.decomposition = decomposition
@@ -233,7 +296,7 @@ class GCFormer(ModelBehavior):
 
         self.revin_layer = RevIN(config.enc_in, affine=True, subtract_last=False)
         self.TCN = TemporalConvNet(config.enc_in, [config.h_channel, config.enc_in])
-        self.local_Autoformer = Autoformer.Model(config)
+        self.local_Autoformer = Autoformer(config)
         self.local_bias = nn.Parameter(torch.rand(1) * 0.1 + config.local_bias)
         self.global_bias = nn.Parameter(torch.rand(1) * 0.1 + config.global_bias)
 
@@ -310,3 +373,12 @@ class GCFormer(ModelBehavior):
         elif self.norm_type == 'seq_last':
             output = output + seq_last
         return output, local_x, global_x, self.global_bias, self.local_bias
+    
+    def cal_loss(self, logits, batch_y):
+        outputs, local_x, global_x, self.global_bias, self.local_bias = logits
+        f_dim = -1 if self.config.features == 'MS' else 0
+        outputs = outputs[:, -self.config.pred_len:, f_dim:]
+        batch_y = batch_y[:, -self.config.pred_len:, f_dim:].to('cuda')
+        loss = F.mse_loss(outputs, batch_y)
+        
+        return loss

@@ -7,6 +7,7 @@ class Config:
     pred_len: int
     n_channels: int
     lr: int
+    batch_size: int
     log_grad: bool = False
 
 
@@ -49,5 +50,19 @@ TUNE_RESULT = {
         'temporal_decoder_hidden': 64,
         'decoder_output_dim': 16,
         'dropout_rate': 0.1
+    },
+    'gcformer': {
+        'lr': 5.513238529639672e-05,
+        'batch_size': 64,
+        'n_heads': 8,
+        'd_model': 128,
+        'd_ff': 256,
+        'patch_len': 32,
+        'stride': 8,
+        'dropout': 0.034556568137821264,
+        'fc_dropout': 0.16874475264732125,
+        'global_bias': 0.49198258444525167,
+        'local_bias': 0.2979813321877539,
+        'h_channel': 32
     }
 }

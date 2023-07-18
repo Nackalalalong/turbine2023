@@ -31,8 +31,8 @@ class ModelBehavior(L.LightningModule):
     def training_step(self, batch, batch_idx):
         x, y = self.extract_batch(batch)
 
-        y_hat = self.forward(x)
-        loss = F.mse_loss(y_hat, y)
+        logits = self.forward(x)
+        loss = self.cal_loss(logits, y)
         self.training_step_losses.append(loss.item())
         self.log('train_loss_step', loss, prog_bar=True)
 
@@ -48,7 +48,7 @@ class ModelBehavior(L.LightningModule):
     def validation_step(self, batch, batch_idx):
         x, y = self.extract_batch(batch)
         logits = self.forward(x)
-        loss = F.mse_loss(logits, y)
+        loss = self.cal_loss(logits, y)
         self.validation_step_losses.append(loss.item())
 
     def on_validation_epoch_end(self):
@@ -61,8 +61,8 @@ class ModelBehavior(L.LightningModule):
     def test_step(self, batch, batch_idx):
         x, y = self.extract_batch(batch)
 
-        y_hat = self.forward(x)
-        loss = F.mse_loss(y_hat, y)
+        logits = self.forward(x)
+        loss = self.cal_loss(logits, y)
         self.test_step_losses.append(loss.item())
 
     def on_test_epoch_end(self) -> None:
@@ -88,3 +88,6 @@ class ModelBehavior(L.LightningModule):
         x, y = self.extract_batch(batch)
 
         return self.forward(x)
+    
+    def cal_loss(self, logits, y):
+        return F.mse_loss(logits, y)

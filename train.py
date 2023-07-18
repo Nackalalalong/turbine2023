@@ -27,7 +27,7 @@ warnings.filterwarnings('ignore')
 from constants import (DATASETS, H_LIST, T_LIST, Config, TUNE_RESULT, N_CHANNEL)
 from data import prepare_dataloaders
 from models.linear import DLinear, NLinear
-from utils import read_event_values, create_dirs_if_not_exist, get_model_class, get_config_class, get_tune_result
+from utils.exp import read_event_values, create_dirs_if_not_exist, get_model_class, get_config_class, get_tune_result
 
 app = typer.Typer(pretty_exceptions_enable=False)
 
@@ -51,7 +51,6 @@ def train(model_name: str,
     tune_result = get_tune_result(model_name)
 
     batch_size = tune_result['batch_size']
-    del tune_result['batch_size']
 
     config = ConfigClass(seq_len=seq_len,
                          pred_len=pred_len,
