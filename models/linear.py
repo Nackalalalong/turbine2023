@@ -5,6 +5,7 @@ import torch.nn as nn
 from models.base import ModelBehavior
 from constants import Config
 
+torch.set_default_dtype(torch.float32)
 
 class NLinear(ModelBehavior):
     """

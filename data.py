@@ -5,19 +5,24 @@ import numpy as np
 import pandas as pd
 from sklearn.preprocessing import StandardScaler
 from torch.utils.data import DataLoader, Dataset
+torch.set_default_dtype(torch.float32)
 
 from constants import TEST_SIZE, VAL_SIZE
-
 
 DATA_DIR = abspath('./data')
 
 
 class CustomDataset(Dataset):
-    def __init__(self, X: np.ndarray, y: np.ndarray) -> None:
+    def __init__(self, X: np.ndarray, y: np.ndarray, cuda=False) -> None:
         assert len(X) == len(y)
 
         self.X = torch.from_numpy(X)
         self.y = torch.from_numpy(y)
+
+        if cuda:
+            self.X = self.X.cuda()
+            self.y = self.y.cuda()
+
         self.length = len(X)
 
     def __getitem__(self, index) -> torch.TensorType:
@@ -136,10 +141,11 @@ def train_val_test_split(X: np.ndarray, y: np.ndarray):
     return train_X, val_X, test_X, train_y, val_y, test_y
 
 
-def _prepare_dataloaders(df: pd.DataFrame, batch_size: int, seq_len: int, pred_len: int, n_channels: int):
+def _prepare_dataloaders(df: pd.DataFrame, batch_size: int, seq_len: int, pred_len: int, n_channels: int, cuda: bool = False):
     assert len(df.values.shape) == 2
 
     values, scaler = scale_data(df.values)
+    values = values.astype(np.float32)
     X, y = make_X_y(values, seq_len, pred_len)
 
     train_X, val_X, test_X, train_y, val_y, test_y = train_val_test_split(X, y)
@@ -151,14 +157,14 @@ def _prepare_dataloaders(df: pd.DataFrame, batch_size: int, seq_len: int, pred_l
     assert n_channels == val_y.shape[2]
     assert n_channels == test_y.shape[2]
 
-    train_loader = DataLoader(CustomDataset(train_X, train_y), shuffle=False, batch_size=batch_size)
-    val_loader = DataLoader(CustomDataset(val_X, val_y), shuffle=False, batch_size=batch_size)
-    test_loader = DataLoader(CustomDataset(test_X, test_y), shuffle=False, batch_size=batch_size)
+    train_loader = DataLoader(CustomDataset(train_X, train_y, cuda), shuffle=False, batch_size=batch_size)
+    val_loader = DataLoader(CustomDataset(val_X, val_y, cuda), shuffle=False, batch_size=batch_size)
+    test_loader = DataLoader(CustomDataset(test_X, test_y, cuda), shuffle=False, batch_size=batch_size)
 
     return train_loader, val_loader, test_loader, scaler
 
 
-def prepare_dataloaders(data: str, batch_size: int, seq_len: int, pred_len: int, n_channels: int):
+def prepare_dataloaders(data: str, batch_size: int, seq_len: int, pred_len: int, n_channels: int, cuda: bool = False):
     if n_channels is None:
         raise "n_channels must be number"
     
@@ -171,7 +177,7 @@ def prepare_dataloaders(data: str, batch_size: int, seq_len: int, pred_len: int,
     else:
         raise 'invalid data'
     
-    return _prepare_dataloaders(df, batch_size=batch_size, seq_len=seq_len, pred_len=pred_len, n_channels=n_channels)
+    return _prepare_dataloaders(df, batch_size=batch_size, seq_len=seq_len, pred_len=pred_len, n_channels=n_channels, cuda=cuda)
 
 
 if __name__ == '__main__':

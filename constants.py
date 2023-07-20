@@ -52,17 +52,17 @@ TUNE_RESULT = {
         'dropout_rate': 0.1
     },
     'gcformer': {
-        'lr': 5.513238529639672e-05,
+        'lr': 0.0004530686954847177,
         'batch_size': 64,
-        'n_heads': 8,
+        'n_heads': 32,
         'd_model': 128,
         'd_ff': 256,
-        'patch_len': 32,
-        'stride': 8,
-        'dropout': 0.034556568137821264,
-        'fc_dropout': 0.16874475264732125,
-        'global_bias': 0.49198258444525167,
-        'local_bias': 0.2979813321877539,
-        'h_channel': 32
+        'patch_len': 8,
+        'stride': 32,
+        'dropout': 0.14746611098341372,
+        'fc_dropout': 0.4557664851038477,
+        'global_bias': 0.4691404907245757,
+        'local_bias': 0.3823220793212333,
+        'h_channel': 64
     }
 }

@@ -7,7 +7,7 @@ from dataclasses import dataclass
 from constants import Config, N_CHANNEL
 from models.base import ModelBehavior
 
-torch.set_default_dtype(torch.float64)
+torch.set_default_dtype(torch.float32)
 
 
 @dataclass(kw_only=True)

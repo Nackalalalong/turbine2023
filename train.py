@@ -44,7 +44,8 @@ def train(model_name: str,
           enable_model_summary: bool = True,
           skip_done: bool = False,
           eval_after_train: bool = False,
-          log_grad: bool = False):
+          log_grad: bool = False,
+          load_data_to_cuda: bool = False):
 
     ModelClass = get_model_class(model_name)
     ConfigClass = get_config_class(model_name)
@@ -88,7 +89,8 @@ def train(model_name: str,
                                                                         batch_size=batch_size,
                                                                         seq_len=seq_len,
                                                                         pred_len=pred_len,
-                                                                        n_channels=N_CHANNEL)
+                                                                        n_channels=N_CHANNEL,
+                                                                        cuda=load_data_to_cuda)
 
     model: L.LightningModule = ModelClass(config)
     model.cuda()
@@ -170,7 +172,8 @@ def main(model: str = 'nlinear',
          max_workers: int = 4,
          tensorboard_save_dir: str = 'dev',
          eval_after_train: bool = False,
-         log_grad: bool = False):
+         log_grad: bool = False,
+         load_data_to_cuda: bool = False):
 
     if data not in ['all'] + DATASETS:
         raise 'invalid data'
@@ -197,7 +200,8 @@ def main(model: str = 'nlinear',
                                   skip_done=skip_done,
                                   tensorboard_save_dir=tensorboard_save_dir,
                                   eval_after_train=eval_after_train,
-                                  log_grad=log_grad)
+                                  log_grad=log_grad,
+                                  load_data_to_cuda=load_data_to_cuda)
 
                     future = executor.submit(train, **kwargs)
 
@@ -227,7 +231,8 @@ def main(model: str = 'nlinear',
                       skip_done=skip_done,
                       tensorboard_save_dir=tensorboard_save_dir,
                       eval_after_train=eval_after_train,
-                      log_grad=log_grad)
+                      log_grad=log_grad,
+                      load_data_to_cuda=load_data_to_cuda)
 
     else:
 
@@ -242,7 +247,8 @@ def main(model: str = 'nlinear',
                   eval_after_train=eval_after_train,
                   version=f'{dataset_name}/H{seq_len}-T{pred_len}',
                   skip_done=skip_done,
-                  log_grad=log_grad)
+                  log_grad=log_grad,
+                  load_data_to_cuda=load_data_to_cuda)
 
 
 if __name__ == '__main__':

@@ -17,7 +17,7 @@ from models.autoformer import Autoformer
 from models.base import ModelBehavior
 
 
-torch.set_default_dtype(torch.float64)
+torch.set_default_dtype(torch.float32)
 
 
 # https://github.com/zyj-111/GCformer/blob/main/run_longExp.py
@@ -300,6 +300,7 @@ class GCFormer(ModelBehavior):
         self.local_bias = nn.Parameter(torch.rand(1) * 0.1 + config.local_bias)
         self.global_bias = nn.Parameter(torch.rand(1) * 0.1 + config.global_bias)
 
+    @torch.cuda.amp.autocast()
     def forward(self, x):  # x: [Batch, Input length, Channel]
 
         ################### norm

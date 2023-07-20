@@ -10,7 +10,6 @@ from tqdm import tqdm
 import torch
 from torch.utils.data import DataLoader
 
-from models.linear import NLinear, DLinear
 from utils.exp import extract_H_T, create_dirs_if_not_exist, build_model
 from constants import Config, DATASETS, H_LIST, T_LIST
 from data import prepare_dataloaders
@@ -34,10 +33,10 @@ def load_model_for_eval(ht_dir: str, model_name: str, data: str):
 
     with open(join(ht_dir, 'config.json')) as f:
         config_dict = json.load(f)
-    del config_dict['batch_size']
 
     model = build_model(model_name, data, **config_dict)
     model = model.load_from_checkpoint(checkpoint_path, config=model.config)
+    model = model.float()  # change weight dtype to float32
     model.cuda()
     model.freeze()
     model.eval()
@@ -233,13 +232,14 @@ def analyse_how_far(tensorbaord_save_dir: str = 'exp', level: str = 'data', log_
             test_targets.append(y_batch)
         test_targets = torch.vstack(test_targets)
 
-        mses = []
-        for i in range(T):
-            preds = predictions[:, i, :]
-            targets = test_targets[:, i, :]
-            mse = torch.mean((preds - targets)**2, axis=0)
-            mses.append(mse)
-        mses = np.array(mses)
+        mses = torch.mean((predictions - test_targets) ** 2, axis=0)
+
+        del model 
+        del trainer
+        del predictions
+        del test_loader
+
+        torch.cuda.empty_cache()
 
         return mses
 
@@ -299,8 +299,6 @@ def analyse_how_far(tensorbaord_save_dir: str = 'exp', level: str = 'data', log_
         def iterate_exp_combinations(tensorbaord_save_dir: str):
             for data in DATASETS:
                 for model_name in listdir(tensorbaord_save_dir):
-                    if model_name != 'tide-w-a':
-                        continue
                     model_dir = join(tensorbaord_save_dir, model_name)
                     data_dir = join(model_dir, data)
 
@@ -356,6 +354,54 @@ def analyse_how_far(tensorbaord_save_dir: str = 'exp', level: str = 'data', log_
 
             pbar.update(1)
 
+    def do_overall():
+
+        fig, axes = plt.subplots(1, 4, sharey=True, figsize=(16, 4))
+        i = 0
+        for model_name in listdir(tensorbaord_save_dir):
+            if model_name == 'gcformer':
+                continue
+            print(model_name)
+            t_to_mse = dict()
+            t_to_n = dict()
+
+            model_dir = join(tensorbaord_save_dir, model_name)
+            for data in DATASETS:
+                data_dir = join(model_dir, data)
+
+                for T_index, T in enumerate(T_LIST):
+                    print(data, T)
+                    for H_index, H in enumerate(H_LIST):
+                        mses = get_mses(H, T, model_name, data, data_dir)
+                        for t in range(len(mses)):
+                            n_channels = mses.shape[1]
+                            if t not in t_to_mse:
+                                t_to_mse[t] = torch.mean(mses[t])
+                                t_to_n[t] = n_channels
+                            else:
+                                n = t_to_n[t]
+                                t_to_mse[t] = ((t_to_mse[t] * n) + torch.sum(mses[t])) / (n + n_channels)
+                                t_to_n[t] = n + n_channels
+                        del mses
+
+            avg_mses = []
+            for t in range(T_LIST[-1]):
+                avg_mses.append(t_to_mse[t])
+
+            axes[i].plot(np.arange(T_LIST[-1]) + 1, avg_mses)
+            axes[i].set_xlabel(model_name)
+            if log_x:
+                axes[i].set_xscale('log')
+            i += 1
+    
+        fig.supxlabel('model')
+        fig.supylabel('mse')
+
+        plt.suptitle('Overall MSE of time step from 1 to 720')
+        plt.tight_layout()
+
+        plt.savefig(join(out_dir, 'overall.png'))
+
     out_dir = 'how_far/'
     create_dirs_if_not_exist(out_dir)
 
@@ -363,6 +409,8 @@ def analyse_how_far(tensorbaord_save_dir: str = 'exp', level: str = 'data', log_
         do_level_T()
     elif level == 'data':
         do_level_data()
+    elif level == 'overall':
+        do_overall()
     else:
         raise "invalid level"
 

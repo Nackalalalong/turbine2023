@@ -608,8 +608,8 @@ class GConv(nn.Module):
             self.kernel_norm = k.norm(dim=-1, keepdim=True).detach()
             self.kernel_norm_initialized = torch.tensor(
                 1, dtype=torch.bool, device=k.device)
-            print(f"Kernel norm: {self.kernel_norm.mean()}")
-            print(f"Kernel size: {k.size()}")
+            # print(f"Kernel norm: {self.kernel_norm.mean()}")
+            # print(f"Kernel size: {k.size()}")
 
         if k.size(-1) > L:
             k = k[..., :L]
