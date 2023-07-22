@@ -1,4 +1,5 @@
 import typer
+import os
 from os import listdir
 from os.path import join
 import json
@@ -9,6 +10,7 @@ import pickle
 from tqdm import tqdm
 import torch
 from torch.utils.data import DataLoader
+import pickle
 
 from utils.exp import extract_H_T, create_dirs_if_not_exist, build_model
 from constants import Config, DATASETS, H_LIST, T_LIST
@@ -224,6 +226,8 @@ def analyse_how_far(tensorbaord_save_dir: str = 'exp', level: str = 'data', log_
         )
 
         predictions = trainer.predict(model, test_loader)
+        if model_name == 'gcformer':
+            predictions = [e[0] for e in predictions]
         predictions = torch.vstack(predictions)
 
         test_targets = []
@@ -231,6 +235,8 @@ def analyse_how_far(tensorbaord_save_dir: str = 'exp', level: str = 'data', log_
             _, y_batch = batch
             test_targets.append(y_batch)
         test_targets = torch.vstack(test_targets)
+
+        assert predictions.shape == test_targets.shape
 
         mses = torch.mean((predictions - test_targets) ** 2, axis=0)
 
@@ -356,13 +362,21 @@ def analyse_how_far(tensorbaord_save_dir: str = 'exp', level: str = 'data', log_
 
     def do_overall():
 
-        fig, axes = plt.subplots(1, 4, sharey=True, figsize=(16, 4))
+        cache_dir = join(out_dir, 'cache')
+        create_dirs_if_not_exist(cache_dir)
+        cache = dict()
+        cache_file = join(cache_dir, 'overall.pickle')
+        if os.path.exists(cache_file):
+            with open(cache_file, 'rb') as f:
+                cache = pickle.load(f)
+
+        model_names = ['nlinear', 'dlinear', 'tide-wo-a', 'tide-w-a', 'gcformer']
+        n_cols = len(model_names)
+        fig, axes = plt.subplots(1, n_cols, sharey=True, figsize=(16, 4))
         i = 0
-        for model_name in listdir(tensorbaord_save_dir):
-            if model_name == 'gcformer':
-                continue
+        for model_name in model_names:
             print(model_name)
-            t_to_mse = dict()
+            t_to_sum = dict()
             t_to_n = dict()
 
             model_dir = join(tensorbaord_save_dir, model_name)
@@ -372,21 +386,29 @@ def analyse_how_far(tensorbaord_save_dir: str = 'exp', level: str = 'data', log_
                 for T_index, T in enumerate(T_LIST):
                     print(data, T)
                     for H_index, H in enumerate(H_LIST):
-                        mses = get_mses(H, T, model_name, data, data_dir)
+                        cache_key = f'{model_name}_{data}_H{H}_T{T}'
+                        if cache_key in cache:
+                            mses = cache[cache_key]
+                        else:
+                            mses = get_mses(H, T, model_name, data, data_dir)
+                            cache[cache_key] = mses
+                            with open(cache_file, 'wb') as f:
+                                pickle.dump(cache, f)
+
                         for t in range(len(mses)):
                             n_channels = mses.shape[1]
-                            if t not in t_to_mse:
-                                t_to_mse[t] = torch.mean(mses[t])
+                            if t not in t_to_sum:
+                                t_to_sum[t] = torch.sum(mses[t])
                                 t_to_n[t] = n_channels
                             else:
                                 n = t_to_n[t]
-                                t_to_mse[t] = ((t_to_mse[t] * n) + torch.sum(mses[t])) / (n + n_channels)
+                                t_to_sum[t] = t_to_sum[t] + torch.sum(mses[t])
                                 t_to_n[t] = n + n_channels
                         del mses
 
             avg_mses = []
             for t in range(T_LIST[-1]):
-                avg_mses.append(t_to_mse[t])
+                avg_mses.append(t_to_sum[t]/t_to_n[t])
 
             axes[i].plot(np.arange(T_LIST[-1]) + 1, avg_mses)
             axes[i].set_xlabel(model_name)
