@@ -6,9 +6,7 @@ import os
 import typer
 
 from data import prepare_dataloaders
-from models.linear import NLinear, DLinear
-from models.tide import TiDE, TiDEConfig
-from constants import Config, H_LIST, T_LIST
+from constants import H_LIST, T_LIST
 from utils.exp import build_model
 
 app = typer.Typer()
@@ -29,7 +27,7 @@ tensorboard_dir = os.path.abspath('./tuning')
 
 
 @app.command()
-def main(model_name: str = 'nlinear',
+def main(model: str = 'nlinear',
          max_epochs: int = 10,
          num_samples: int = 10,
          data: str = '3d'):
@@ -45,10 +43,10 @@ def main(model_name: str = 'nlinear',
         config['seq_len'] = seq_len
         config['pred_len'] = pred_len
         config['n_channels'] = n_channels
-        model = build_model(model_name, data, **config)
-        model.cuda()
+        _model = build_model(model, data, **config)
+        _model.cuda()
 
-        logger = TensorBoardLogger(save_dir=tensorboard_dir, name=model_name)
+        logger = TensorBoardLogger(save_dir=tensorboard_dir, name=model)
 
         metrics = {"val_loss": "val_loss", 'train_loss': 'train_loss'}
         tune_cb = _TuneReportCallback(metrics, on="validation_end")
@@ -57,20 +55,20 @@ def main(model_name: str = 'nlinear',
                             callbacks=[tune_cb],
                             logger=logger,
                             enable_progress_bar=False)
-        trainer.fit(model, train_loader, val_loader)
+        trainer.fit(_model, train_loader, val_loader)
 
     tune_config = None
-    if model_name == 'nlinear':
+    if 'nlinear' in model:
         tune_config = {
             "lr": tune.loguniform(1e-4, 1e-1),
-            "batch_size": tune.choice([8, 16, 32, 64]),
+            "batch_size": tune.choice([16, 32, 64]),
         }
-    elif model_name == 'dlinear':
+    elif 'dlinear' in model:
         tune_config = {
             "lr": tune.loguniform(1e-4, 1e-1),
-            "batch_size": tune.choice([8, 16, 32, 64]),
+            "batch_size": tune.choice([16, 32, 64]),
         }
-    elif 'tide' in model_name:
+    elif 'tide' in model:
         tune_config = {
             "lr": tune.loguniform(1e-5, 1e-2),
             "batch_size": tune.choice([32, 64, 128]),
@@ -86,7 +84,7 @@ def main(model_name: str = 'nlinear',
             'decoder_output_dim': tune.choice([4, 8, 16, 32]),
             'dropout_rate': tune.choice([0, 0.1, 0.2, 0.3, 0.5])
         }
-    elif model_name == 'gcformer':
+    elif model == 'gcformer':
         tune_config = {
             "lr": tune.loguniform(1e-5, 1e-2),
             "batch_size": tune.choice([16, 32, 64]),
@@ -100,6 +98,13 @@ def main(model_name: str = 'nlinear',
             'global_bias': tune.uniform(0, 0.5),
             'local_bias': tune.uniform(0, 0.5),
             'h_channel': tune.choice([32, 64]),
+        }
+    elif model == 'last':
+        tune_config = {
+            "lr": tune.loguniform(1e-5, 1e-2),
+            "batch_size": tune.choice([16, 32, 64]),
+            'latent_dim': tune.choice([32,64,128]),
+            'dropout': tune.uniform(0, 0.5)
         }
     else:
         raise "invalid model name"
@@ -115,7 +120,7 @@ def main(model_name: str = 'nlinear',
                         mode="min",
                         config=tune_config,
                         num_samples=num_samples,
-                        name=model_name)
+                        name=model)
 
     print(analysis)
 

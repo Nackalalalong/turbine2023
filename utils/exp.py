@@ -5,8 +5,9 @@ import json
 import itertools
 import copy
 
-from constants import H_LIST, T_LIST, Config, TUNE_RESULT
-from models.linear import NLinear, DLinear
+from constants import H_LIST, T_LIST, TUNE_RESULT
+from models.nlinear import NLinear, NLinearConfig
+from models.dlinear import DLinear, DLinearConfig
 from models.base import ModelBehavior
 from models.tide import TiDE, TiDEConfig
 from models.gcformer import GCFormer, GCFormerConfig
@@ -58,9 +59,9 @@ def get_h_t_combination():
 
 
 def get_model_class(model_name: str):
-    if model_name == 'dlinear':
+    if 'dlinear' in model_name:
         return DLinear
-    if model_name == 'nlinear':
+    if 'nlinear' in model_name:
         return NLinear
     if model_name == 'gcformer':
         return GCFormer
@@ -70,10 +71,10 @@ def get_model_class(model_name: str):
 
 
 def get_config_class(model_name: str):
-    if model_name == 'dlinear':
-        return Config
-    if model_name == 'nlinear':
-        return Config
+    if 'dlinear' in model_name:
+        return DLinearConfig
+    if 'nlinear' in model_name:
+        return NLinearConfig
     if model_name == 'gcformer':
         return GCFormerConfig
     if 'tide' in model_name:
@@ -94,5 +95,15 @@ def build_model(model_name: str, data: str = None, **config_kwargs) -> ModelBeha
         diameter = int(data[0])
         assert diameter in [1, 2, 3]
         config.diameter = diameter
+    elif model_name == 'nlinear-ni':
+        config.individual = False
+    elif model_name == 'nlinear':
+        config.individual = True
+    elif model_name == 'dlinear-ni':
+        config.individual = False
+    elif model_name == 'dlinear':
+        config.individual = True
+    else:
+        raise "invalid model name"
 
     return ModelClass(config)
