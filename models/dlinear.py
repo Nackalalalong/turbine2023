@@ -63,6 +63,7 @@ class DLinear(ModelBehavior):
         # Decompsition Kernel Size
         self.kernel_size = 25
         self.decompsition = series_decomp(self.kernel_size)
+        self.individual = config.individual
 
         if self.individual:
             self.Linear_Seasonal = nn.ModuleList()

@@ -27,10 +27,18 @@ TUNE_RESULT = {
         'lr': 0.000467785952240407,
         'batch_size': 64
     },
+    'nlinear-ni': {
+        'lr': 0.00012020566954270704,
+        'batch_size': 32,
+    },
     'dlinear': {
         'lr': 0.00036642856489512316,
         'batch_size': 32
     },
+    'dlinear-ni': {{
+        'lr': 0.00010335413101679534,
+        'batch_size': 64,
+    }},
     'tide-wo-a': {
         'lr': 0.00036490350684871407,
         'batch_size': 128,
