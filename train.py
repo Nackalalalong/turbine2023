@@ -24,10 +24,9 @@ import warnings
 
 warnings.filterwarnings('ignore')
 
-from constants import (DATASETS, H_LIST, T_LIST, Config, TUNE_RESULT, N_CHANNEL)
+from constants import (DATASETS, H_LIST, T_LIST, N_CHANNEL)
 from data import prepare_dataloaders
-from models.linear import DLinear, NLinear
-from utils.exp import read_event_values, create_dirs_if_not_exist, get_model_class, get_config_class, get_tune_result
+from utils.exp import read_event_values, get_model_class, get_config_class, get_tune_result, build_model
 
 app = typer.Typer(pretty_exceptions_enable=False)
 
@@ -46,22 +45,6 @@ def train(model_name: str,
           eval_after_train: bool = False,
           log_grad: bool = False,
           load_data_to_cuda: bool = False):
-
-    ModelClass = get_model_class(model_name)
-    ConfigClass = get_config_class(model_name)
-    tune_result = get_tune_result(model_name)
-
-    batch_size = tune_result['batch_size']
-
-    config = ConfigClass(seq_len=seq_len,
-                         pred_len=pred_len,
-                         n_channels=N_CHANNEL,
-                         log_grad=log_grad,
-                         **tune_result)
-
-    if model_name == 'tide-w-a':
-        config.diameter = int(data[0])
-        assert config.diameter in [1, 2, 3]
 
     version_dir = os.path.join(tensorboard_save_dir, name, version)
 
@@ -84,6 +67,13 @@ def train(model_name: str,
 
     if (skip_done and done) and (not eval_after_train or eval_finish):
         return
+    
+    config_kwargs = get_tune_result(model_name)
+    batch_size = config_kwargs['batch_size']
+    config_kwargs['seq_len'] = seq_len
+    config_kwargs['pred_len'] = pred_len
+    config_kwargs['n_channels'] = N_CHANNEL
+    
 
     train_loader, val_loader, test_loader, scaler = prepare_dataloaders(data=data,
                                                                         batch_size=batch_size,
@@ -92,8 +82,15 @@ def train(model_name: str,
                                                                         n_channels=N_CHANNEL,
                                                                         cuda=load_data_to_cuda)
 
-    model: L.LightningModule = ModelClass(config)
+    model = build_model(model_name=model_name, data=data, **config_kwargs)
     model.cuda()
+
+    config = model.config
+
+    if model_name == 'nlinear-ni' or model_name == 'dlinear-ni':
+        assert config.individual == False
+    elif model_name == 'nlinear' or model_name == 'dlinear':
+        assert config.individual == True
 
     if not (skip_done and done):
 

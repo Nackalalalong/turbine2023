@@ -1,7 +1,7 @@
 from dataclasses import dataclass
 
 
-@dataclass
+@dataclass(kw_only=True)
 class Config:
     seq_len: int
     pred_len: int
@@ -35,10 +35,10 @@ TUNE_RESULT = {
         'lr': 0.00036642856489512316,
         'batch_size': 32
     },
-    'dlinear-ni': {{
+    'dlinear-ni': {
         'lr': 0.00010335413101679534,
         'batch_size': 64,
-    }},
+    },
     'tide-wo-a': {
         'lr': 0.00036490350684871407,
         'batch_size': 128,

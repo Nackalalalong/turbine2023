@@ -11,7 +11,7 @@ torch.set_default_dtype(torch.float32)
 
 @dataclass(kw_only=True)
 class NLinearConfig(Config):
-    individual: bool = True
+    individual: bool
 
 
 class NLinear(ModelBehavior):
@@ -26,7 +26,7 @@ class NLinear(ModelBehavior):
 
         if self.individual:
             self.Linear = nn.ModuleList()
-            for i in range(self.channels):
+            for i in range(self.n_channels):
                 self.Linear.append(nn.Linear(self.seq_len,self.pred_len))
         else:
             self.Linear = nn.Linear(self.seq_len, self.pred_len)
@@ -37,7 +37,7 @@ class NLinear(ModelBehavior):
         x = x - seq_last
         if self.individual:
             output = torch.zeros([x.size(0),self.pred_len,x.size(2)],dtype=x.dtype).to(x.device)
-            for i in range(self.channels):
+            for i in range(self.n_channels):
                 output[:,:,i] = self.Linear[i](x[:,:,i])
             x = output
         else:

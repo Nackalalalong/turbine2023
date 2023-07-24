@@ -49,7 +49,7 @@ class series_decomp(nn.Module):
 
 @dataclass(kw_only=True)
 class DLinearConfig(Config):
-    individual: bool = True
+    individual: bool
 
 
 class DLinear(ModelBehavior):
@@ -69,7 +69,7 @@ class DLinear(ModelBehavior):
             self.Linear_Seasonal = nn.ModuleList()
             self.Linear_Trend = nn.ModuleList()
             
-            for i in range(self.channels):
+            for i in range(self.n_channels):
                 self.Linear_Seasonal.append(nn.Linear(self.seq_len,self.pred_len))
                 self.Linear_Trend.append(nn.Linear(self.seq_len,self.pred_len))
 
@@ -91,7 +91,7 @@ class DLinear(ModelBehavior):
         if self.individual:
             seasonal_output = torch.zeros([seasonal_init.size(0),seasonal_init.size(1),self.pred_len],dtype=seasonal_init.dtype).to(seasonal_init.device)
             trend_output = torch.zeros([trend_init.size(0),trend_init.size(1),self.pred_len],dtype=trend_init.dtype).to(trend_init.device)
-            for i in range(self.channels):
+            for i in range(self.n_channels):
                 seasonal_output[:,i,:] = self.Linear_Seasonal[i](seasonal_init[:,i,:])
                 trend_output[:,i,:] = self.Linear_Trend[i](trend_init[:,i,:])
         else:

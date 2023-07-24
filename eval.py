@@ -37,6 +37,7 @@ def load_model_for_eval(ht_dir: str, model_name: str, data: str):
         config_dict = json.load(f)
 
     model = build_model(model_name, data, **config_dict)
+    print(model.config.__dict__)
     model = model.load_from_checkpoint(checkpoint_path, config=model.config)
     model = model.float()  # change weight dtype to float32
     model.cuda()
@@ -207,7 +208,7 @@ def resconstruct(tensorbaord_save_dir: str = 'exp'):
 
 
 @app.command()
-def analyse_how_far(tensorbaord_save_dir: str = 'exp', level: str = 'data', log_x: bool = False):
+def analyse_how_far(tensorbaord_save_dir: str = 'exp', level: str = 'overall', log_x: bool = False):
 
     def get_mses(H: int, T: int, model_name: str, data: str, data_dir: str):
         ht_name = f"H{H}-T{T}"
@@ -370,9 +371,9 @@ def analyse_how_far(tensorbaord_save_dir: str = 'exp', level: str = 'data', log_
             with open(cache_file, 'rb') as f:
                 cache = pickle.load(f)
 
-        model_names = ['nlinear', 'dlinear', 'tide-wo-a', 'tide-w-a', 'gcformer']
+        model_names = ['nlinear', 'nlinear-ni', 'dlinear', 'dlinear-ni', 'tide-wo-a', 'tide-w-a', 'gcformer']
         n_cols = len(model_names)
-        fig, axes = plt.subplots(1, n_cols, sharey=True, figsize=(16, 4))
+        fig, axes = plt.subplots(1, n_cols, sharey=True, figsize=(4*n_cols, 4))
         i = 0
         for model_name in model_names:
             print(model_name)

@@ -90,20 +90,33 @@ def build_model(model_name: str, data: str = None, **config_kwargs) -> ModelBeha
     ModelClass = get_model_class(model_name)
     ConfigClass = get_config_class(model_name)
 
-    config = ConfigClass(**config_kwargs)
     if model_name == 'tide-w-a':
         diameter = int(data[0])
         assert diameter in [1, 2, 3]
-        config.diameter = diameter
+        config_kwargs['diameter'] = diameter
+
     elif model_name == 'nlinear-ni':
-        config.individual = False
+        config_kwargs['individual'] = False
+
     elif model_name == 'nlinear':
-        config.individual = True
+        config_kwargs['individual'] = True
+
     elif model_name == 'dlinear-ni':
-        config.individual = False
+        config_kwargs['individual'] = False
+
     elif model_name == 'dlinear':
-        config.individual = True
+        config_kwargs['individual'] = True
+        
     else:
         raise "invalid model name"
 
-    return ModelClass(config)
+    config = ConfigClass(**config_kwargs)
+    model = ModelClass(config)
+
+    if model_name == 'nlinear-ni' or model_name == 'dlinear-ni':
+        assert config.individual == False
+    elif model_name == 'nlinear' or model_name == 'dlinear':
+        assert config.individual == True
+
+    return model
+    
