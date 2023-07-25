@@ -99,12 +99,16 @@ def main(model: str = 'nlinear',
             'local_bias': tune.uniform(0, 0.5),
             'h_channel': tune.choice([32, 64]),
         }
-    elif model == 'last':
+    elif model == 'fdnet':
         tune_config = {
             "lr": tune.loguniform(1e-5, 1e-2),
             "batch_size": tune.choice([16, 32, 64]),
-            'latent_dim': tune.choice([32,64,128]),
-            'dropout': tune.uniform(0, 0.5)
+            'seq_kernel': tune.choice([3,5]),
+            'attn_nums': tune.choice([2,3,5,7]),
+            'd_model': tune.choice([8,16,32,64]),
+            'pyramid': tune.choice([0,1,2,3,4]),
+            'dropout': tune.uniform(0, 0.3),
+            'ICOM': tune.choice([True,False])
         }
     else:
         raise "invalid model name"

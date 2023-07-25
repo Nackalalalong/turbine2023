@@ -1,4 +1,5 @@
 from dataclasses import dataclass
+from types import MappingProxyType
 
 
 @dataclass(kw_only=True)
@@ -22,21 +23,21 @@ TEST_SIZE = 0.2
 DATASETS = ['1d', '2d', '3d']
 
 # from tuning
-TUNE_RESULT = {
+TUNE_RESULT = MappingProxyType({
     'nlinear': {
         'lr': 0.000467785952240407,
         'batch_size': 64
     },
     'nlinear-ni': {
-        'lr': 0.00012020566954270704,
-        'batch_size': 32,
+        'lr': 0.00010606156361434318,
+        'batch_size': 16,
     },
     'dlinear': {
         'lr': 0.00036642856489512316,
         'batch_size': 32
     },
     'dlinear-ni': {
-        'lr': 0.00010335413101679534,
+        'lr': 0.00012822786597668052,
         'batch_size': 64,
     },
     'tide-wo-a': {
@@ -72,5 +73,15 @@ TUNE_RESULT = {
         'global_bias': 0.4691404907245757,
         'local_bias': 0.3823220793212333,
         'h_channel': 64
+    },
+    'fdnet': {
+        'lr': 1.7917200056006403e-05,
+        'batch_size': 32,
+        'seq_kernel': 3,
+        'attn_nums': 3,
+        'd_model': 32,
+        'pyramid': 3,
+        'dropout': 0.10660256242257105,
+        'ICOM': False,
     }
-}
+})

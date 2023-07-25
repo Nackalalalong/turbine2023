@@ -11,6 +11,7 @@ from models.dlinear import DLinear, DLinearConfig
 from models.base import ModelBehavior
 from models.tide import TiDE, TiDEConfig
 from models.gcformer import GCFormer, GCFormerConfig
+from models.fdnet import FDNet, FDNetConfig
 
 
 def extract_H_T(H_T_dirname: str) -> Tuple[int, int]:
@@ -67,6 +68,8 @@ def get_model_class(model_name: str):
         return GCFormer
     if 'tide' in model_name:
         return TiDE
+    if model_name == 'fdnet':
+        return FDNet
     raise "invalid model name"
 
 
@@ -79,6 +82,8 @@ def get_config_class(model_name: str):
         return GCFormerConfig
     if 'tide' in model_name:
         return TiDEConfig
+    if model_name == 'fdnet':
+        return FDNetConfig
     raise "invalid model name"
 
 
@@ -106,17 +111,18 @@ def build_model(model_name: str, data: str = None, **config_kwargs) -> ModelBeha
 
     elif model_name == 'dlinear':
         config_kwargs['individual'] = True
-        
-    else:
-        raise "invalid model name"
 
     config = ConfigClass(**config_kwargs)
     model = ModelClass(config)
 
     if model_name == 'nlinear-ni' or model_name == 'dlinear-ni':
-        assert config.individual == False
+        assert model.config.individual == False
+        assert model.individual == False
     elif model_name == 'nlinear' or model_name == 'dlinear':
-        assert config.individual == True
+        assert model.config.individual == True
+        assert model.individual == True
+    elif model_name == 'tide-w-a':
+        assert model.config.diameter in [1,2,3]
 
     return model
     

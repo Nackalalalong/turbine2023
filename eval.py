@@ -37,7 +37,6 @@ def load_model_for_eval(ht_dir: str, model_name: str, data: str):
         config_dict = json.load(f)
 
     model = build_model(model_name, data, **config_dict)
-    print(model.config.__dict__)
     model = model.load_from_checkpoint(checkpoint_path, config=model.config)
     model = model.float()  # change weight dtype to float32
     model.cuda()
@@ -371,9 +370,11 @@ def analyse_how_far(tensorbaord_save_dir: str = 'exp', level: str = 'overall', l
             with open(cache_file, 'rb') as f:
                 cache = pickle.load(f)
 
-        model_names = ['nlinear', 'nlinear-ni', 'dlinear', 'dlinear-ni', 'tide-wo-a', 'tide-w-a', 'gcformer']
-        n_cols = len(model_names)
-        fig, axes = plt.subplots(1, n_cols, sharey=True, figsize=(4*n_cols, 4))
+        model_names = ['nlinear', 'nlinear-ni', 'dlinear', 'dlinear-ni', 'tide-wo-a', 'tide-w-a', 'gcformer', 'fdnet']
+
+        n_rows = 2
+        n_cols = len(model_names) // n_rows
+        fig, axes = plt.subplots(n_rows, n_cols, sharey=True, figsize=(4*n_cols, 4*n_rows))
         i = 0
         for model_name in model_names:
             print(model_name)
@@ -411,14 +412,19 @@ def analyse_how_far(tensorbaord_save_dir: str = 'exp', level: str = 'overall', l
             for t in range(T_LIST[-1]):
                 avg_mses.append(t_to_sum[t]/t_to_n[t])
 
-            axes[i].plot(np.arange(T_LIST[-1]) + 1, avg_mses)
-            axes[i].set_xlabel(model_name)
+            r = i // n_cols
+            c = i % n_cols
+
+            axes[r,c].plot(np.arange(T_LIST[-1]) + 1, avg_mses)
+            axes[r,c].set_xlabel(model_name, fontsize=18)
+            if c == 0:
+                axes[r,c].set_ylabel('mse')
             if log_x:
-                axes[i].set_xscale('log')
+                axes[r,c].set_xscale('log')
             i += 1
     
         fig.supxlabel('model')
-        fig.supylabel('mse')
+        # fig.supylabel('mse')
 
         plt.suptitle('Overall MSE of time step from 1 to 720')
         plt.tight_layout()
