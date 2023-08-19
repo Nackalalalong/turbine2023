@@ -73,9 +73,8 @@ def train(model_name: str,
     config_kwargs['seq_len'] = seq_len
     config_kwargs['pred_len'] = pred_len
     config_kwargs['n_channels'] = N_CHANNEL
-    
 
-    train_loader, val_loader, test_loader, scaler = prepare_dataloaders(data=data,
+    train_loader, val_loader, test_loader, _ = prepare_dataloaders(data=data,
                                                                         batch_size=batch_size,
                                                                         seq_len=seq_len,
                                                                         pred_len=pred_len,
@@ -151,10 +150,11 @@ def train(model_name: str,
 
 
 def translate_data(data: str):
-    if data != 'all':
-        return [data]
+    if data == 'all':
+        return DATASETS
+    
+    return [data]
 
-    return DATASETS
 
 
 @app.command()
@@ -172,8 +172,6 @@ def main(model: str = 'nlinear',
          log_grad: bool = False,
          load_data_to_cuda: bool = False):
 
-    if data not in ['all'] + DATASETS:
-        raise 'invalid data'
 
     if long_run:
         dataset_names = translate_data(data)

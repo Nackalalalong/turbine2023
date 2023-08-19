@@ -19,7 +19,7 @@ class TiDEConfig(Config):
     temporal_decoder_hidden: int
     dropout_rate: float
     temporal_width: int = 4
-    diameter: int = None
+    has_attribute: bool = False
 
 
 class ResidualBlock(nn.Module):
@@ -128,7 +128,7 @@ class TiDE(ModelBehavior):
         temporal_decoder_hidden = config.temporal_decoder_hidden
         decoder_output_dim = config.decoder_output_dim
         dropout_rate = config.dropout_rate
-        has_attribute = config.diameter is not None
+        has_attribute = config.has_attribute
 
         seq_len = config.seq_len
         pred_len = config.pred_len
@@ -139,18 +139,26 @@ class TiDE(ModelBehavior):
                                temporal_decoder_hidden, dropout_rate)
         self.residual = nn.Linear(seq_len, pred_len)
 
-    def forward(self, x, attributes: torch.TensorType = None):
-        # x: [B,L,N], covariates: [B,L+H,N,r]
+    def forward(self, x):
+        # x: [B,L,N] or [B,L,N+1]
         batch_size = x.size(0)
+
+        attributes = None
+        if self.config.has_attribute:
+            # print('*'*100)
+            # print(x.shape)
+            attributes = x[:,0:self.config.n_channels,3:] # shape: b n 1
+            attributes = rearrange(attributes, 'b n 1 -> (b n) 1')  # [B,1,N] -> [B*N,1]
+            x = x[:,:,:3]
 
         # Channel Independence: Convert Multivariate series to Univariate series
         x = rearrange(x, 'b l n -> (b n) l')  # [B,L,N] -> [B*N,L]
 
-        attributes = None
-        if self.config.diameter is not None:
-            # attributes = rearrange(attributes, 'b n 1 -> (b n) 1')  # [B,N,1] -> [B*N,1]
-            attributes = torch.ones(
-                (batch_size * N_CHANNEL, 1), device='cuda') * self.config.diameter
+        # attributes = None
+        # if self.config.diameter is not None:
+        #     # attributes = rearrange(attributes, 'b n 1 -> (b n) 1')  # [B,N,1] -> [B*N,1]
+        #     attributes = torch.ones(
+        #         (batch_size * N_CHANNEL, 1), device='cuda') * self.config.diameter
 
         # Encoder
         e = self.encoder(x, attributes)

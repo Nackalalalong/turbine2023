@@ -12,7 +12,7 @@ import torch
 from torch.utils.data import DataLoader
 import pickle
 
-from utils.exp import extract_H_T, create_dirs_if_not_exist, build_model
+from utils.exp import extract_H_T, create_dirs_if_not_exist, build_model, map_model_name
 from constants import Config, DATASETS, H_LIST, T_LIST
 from data import prepare_dataloaders
 
@@ -24,6 +24,19 @@ logging.getLogger("lightning.pytorch.accelerators.cuda").setLevel(logging.WARNIN
 import warnings
 
 warnings.filterwarnings('ignore')
+
+import matplotlib.font_manager as fm
+
+# Define the font family name
+font_family = "cmr10"
+
+# Find the font file for the Computer Modern font
+font_path = fm.findfont(fm.FontProperties(family=font_family))
+
+# Set the default font family
+plt.rcParams["font.family"] = font_family
+plt.rcParams["font.sans-serif"] = [font_family]
+
 
 app = typer.Typer(pretty_exceptions_enable=False)
 
@@ -207,7 +220,7 @@ def resconstruct(tensorbaord_save_dir: str = 'exp'):
 
 
 @app.command()
-def analyse_how_far(tensorbaord_save_dir: str = 'exp', level: str = 'overall', log_x: bool = False):
+def analyse_how_far(tensorboard_save_dir: str = 'exp', level: str = 'overall', log_x: bool = False):
 
     def get_mses(H: int, T: int, model_name: str, data: str, data_dir: str):
         ht_name = f"H{H}-T{T}"
@@ -260,11 +273,11 @@ def analyse_how_far(tensorbaord_save_dir: str = 'exp', level: str = 'overall', l
                     yield data, data_dir, model_name, model_dir
 
         def count_total():
-            c = len(list(iterate_exp_combinations(tensorbaord_save_dir)))
+            c = len(list(iterate_exp_combinations(tensorboard_save_dir)))
             return c * (len(T_LIST))
 
         pbar = tqdm(total=count_total())
-        for data, data_dir, model_name, model_dir in iterate_exp_combinations(tensorbaord_save_dir):
+        for data, data_dir, model_name, model_dir in iterate_exp_combinations(tensorboard_save_dir):
             for T in T_LIST:
                 pbar.set_description(f"{model_name} - {data} - T{T}")
                 fig, axes = plt.subplots(ncols=3, nrows=1, figsize=(18, 6), sharey=True)
@@ -288,7 +301,7 @@ def analyse_how_far(tensorbaord_save_dir: str = 'exp', level: str = 'overall', l
                 fig.supxlabel('time step in T')
                 fig.supylabel('mse')
 
-                title = f"{model_name} - {data} - T{T}"
+                title = f"{map_model_name(model_name)} - {data} - T{T}"
                 plt.suptitle(title)
                 plt.tight_layout()
                 fig.subplots_adjust(right=0.95)
@@ -311,11 +324,17 @@ def analyse_how_far(tensorbaord_save_dir: str = 'exp', level: str = 'overall', l
                     yield data, data_dir, model_name, model_dir
 
         def count_total():
-            c = len(list(iterate_exp_combinations(tensorbaord_save_dir)))
+            c = len(list(iterate_exp_combinations(tensorboard_save_dir)))
             return c
 
+        cache_dir = join(out_dir, 'cache')
+        cache = dict()
+        cache_file = join(cache_dir, 'overall.pickle')
+        if os.path.exists(cache_file):
+            with open(cache_file, 'rb') as f:
+                cache = pickle.load(f)
         pbar = tqdm(total=count_total())
-        for data, data_dir, model_name, model_dir in iterate_exp_combinations(tensorbaord_save_dir):
+        for data, data_dir, model_name, model_dir in iterate_exp_combinations(tensorboard_save_dir):
             n_T = len(T_LIST)
             fig, axes = plt.subplots(ncols=3, nrows=n_T, figsize=(18, 18), sharey=True)
             pbar.set_description(f"{model_name} - {data}")
@@ -324,7 +343,14 @@ def analyse_how_far(tensorbaord_save_dir: str = 'exp', level: str = 'overall', l
                 n_H = len(H_LIST)
                 colors = plt.cm.viridis(np.linspace(0, 1, n_H))
                 for H_index, H in enumerate(H_LIST):
-                    mses = get_mses(H, T, model_name, data, data_dir)
+                    cache_key = f'{model_name}_{data}_H{H}_T{T}'
+                    if cache_key in cache:
+                        mses = cache[cache_key]
+                    else:
+                        mses = get_mses(H, T, model_name, data, data_dir)
+                        cache[cache_key] = mses
+                        with open(cache_file, 'wb') as f:
+                            pickle.dump(cache, f)
                     for i, feature in enumerate(['velocity', 'thrust', 'torqe']):
                         if log_x:
                             axes[T_index, i].set_xscale('log')
@@ -381,7 +407,7 @@ def analyse_how_far(tensorbaord_save_dir: str = 'exp', level: str = 'overall', l
             t_to_sum = dict()
             t_to_n = dict()
 
-            model_dir = join(tensorbaord_save_dir, model_name)
+            model_dir = join(tensorboard_save_dir, model_name)
             for data in DATASETS:
                 data_dir = join(model_dir, data)
 
@@ -416,17 +442,17 @@ def analyse_how_far(tensorbaord_save_dir: str = 'exp', level: str = 'overall', l
             c = i % n_cols
 
             axes[r,c].plot(np.arange(T_LIST[-1]) + 1, avg_mses)
-            axes[r,c].set_xlabel(model_name, fontsize=18)
+            axes[r,c].set_xlabel(map_model_name(model_name), fontsize=15)
             if c == 0:
                 axes[r,c].set_ylabel('mse')
             if log_x:
                 axes[r,c].set_xscale('log')
             i += 1
     
-        fig.supxlabel('model')
+        # fig.supxlabel('model')
         # fig.supylabel('mse')
 
-        plt.suptitle('Overall MSE of time step from 1 to 720')
+        # plt.suptitle('Overall MSE of time step from 1 to 720')
         plt.tight_layout()
 
         plt.savefig(join(out_dir, 'overall.png'))

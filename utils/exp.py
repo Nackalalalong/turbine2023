@@ -96,9 +96,7 @@ def build_model(model_name: str, data: str = None, **config_kwargs) -> ModelBeha
     ConfigClass = get_config_class(model_name)
 
     if model_name == 'tide-w-a':
-        diameter = int(data[0])
-        assert diameter in [1, 2, 3]
-        config_kwargs['diameter'] = diameter
+        config_kwargs['has_attribute'] = True
 
     elif model_name == 'nlinear-ni':
         config_kwargs['individual'] = False
@@ -122,7 +120,19 @@ def build_model(model_name: str, data: str = None, **config_kwargs) -> ModelBeha
         assert model.config.individual == True
         assert model.individual == True
     elif model_name == 'tide-w-a':
-        assert model.config.diameter in [1,2,3]
+        assert model.config.has_attribute == True
 
     return model
     
+
+def map_model_name(name: str) -> str:
+    return {
+        'nlinear': 'NLinear-i',
+        'nlinear-ni': 'NLinear-ni',
+        'dlinear': 'DLinear-i',
+        'dlinear-ni': 'DLinear-ni',
+        'tide-wo-a': 'TiDE-wo-a',
+        'tide-w-a': 'TiDE-w-a',
+        'gcformer': 'GCFormer',
+        'fdnet': 'FDNet'
+    }[name]

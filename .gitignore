@@ -4,6 +4,8 @@ cache
 **/__pycache__/
 tuning/
 exp
+exp_ori
+exp_aio
 reconstructed/values
 reconstructed/individuals
 grad
