@@ -11,6 +11,7 @@ from tqdm import tqdm
 import torch
 from torch.utils.data import DataLoader
 import pickle
+import pandas as pd
 
 from utils.exp import extract_H_T, create_dirs_if_not_exist, build_model, map_model_name
 from constants import Config, DATASETS, H_LIST, T_LIST
@@ -125,6 +126,70 @@ def save_pickle(dir: str, filename: str, obj: object):
     with open(filepath, 'wb') as f:
         pickle.dump(obj, f)
 
+cache_collection = dict()
+
+def get_mses(H: int, T: int, model_name: str, data: str, data_dir: str, cache_dir: str):
+
+        cache_dir = join(cache_dir, 'cache')
+        cache_file = join(cache_dir, 'cache.pickle')
+
+        if cache_file in cache_collection:
+            cache = cache_collection[cache_file]
+        else:
+            if os.path.exists(cache_file):
+                with open(cache_file, 'rb') as f:
+                    cache = pickle.load(f)
+            else:
+                cache = dict()
+            cache_collection[cache_file] = cache
+
+        cache_key = f'{model_name}_{data}_H{H}_T{T}'
+        if cache_key in cache:
+            mses = cache[cache_key]
+        else:
+            ht_name = f"H{H}-T{T}"
+            ht_dir = join(data_dir, ht_name)
+            model = load_model_for_eval(ht_dir, model_name, data)
+
+            _, _, test_loader, _ = prepare_dataloaders(data,
+                                                    batch_size=32,
+                                                    seq_len=H,
+                                                    pred_len=T,
+                                                    n_channels=3)
+
+            trainer = L.Trainer(
+                enable_progress_bar=False,
+                enable_model_summary=False,
+            )
+
+            predictions = trainer.predict(model, test_loader)
+            if model_name == 'gcformer':
+                predictions = [e[0] for e in predictions]
+            predictions = torch.vstack(predictions)
+
+            test_targets = []
+            for batch in test_loader:
+                _, y_batch = batch
+                test_targets.append(y_batch)
+            test_targets = torch.vstack(test_targets)
+
+            assert predictions.shape == test_targets.shape
+
+            mses = torch.mean((predictions - test_targets) ** 2, axis=0)
+
+            cache[cache_key] = mses
+            with open(cache_file, 'wb') as f:
+                pickle.dump(cache, f)
+
+            del model 
+            del trainer
+            del predictions
+            del test_loader
+
+            torch.cuda.empty_cache()
+
+        return mses
+
 
 @app.command()
 def resconstruct(tensorbaord_save_dir: str = 'exp'):
@@ -222,46 +287,6 @@ def resconstruct(tensorbaord_save_dir: str = 'exp'):
 @app.command()
 def analyse_how_far(tensorboard_save_dir: str = 'exp', level: str = 'overall', log_x: bool = False):
 
-    def get_mses(H: int, T: int, model_name: str, data: str, data_dir: str):
-        ht_name = f"H{H}-T{T}"
-        ht_dir = join(data_dir, ht_name)
-        model = load_model_for_eval(ht_dir, model_name, data)
-
-        _, _, test_loader, _ = prepare_dataloaders(data,
-                                                   batch_size=32,
-                                                   seq_len=H,
-                                                   pred_len=T,
-                                                   n_channels=3)
-
-        trainer = L.Trainer(
-            enable_progress_bar=False,
-            enable_model_summary=False,
-        )
-
-        predictions = trainer.predict(model, test_loader)
-        if model_name == 'gcformer':
-            predictions = [e[0] for e in predictions]
-        predictions = torch.vstack(predictions)
-
-        test_targets = []
-        for batch in test_loader:
-            _, y_batch = batch
-            test_targets.append(y_batch)
-        test_targets = torch.vstack(test_targets)
-
-        assert predictions.shape == test_targets.shape
-
-        mses = torch.mean((predictions - test_targets) ** 2, axis=0)
-
-        del model 
-        del trainer
-        del predictions
-        del test_loader
-
-        torch.cuda.empty_cache()
-
-        return mses
-
     def do_level_T():
 
         def iterate_exp_combinations(tensorbaord_save_dir: str):
@@ -285,7 +310,7 @@ def analyse_how_far(tensorboard_save_dir: str = 'exp', level: str = 'overall', l
                 n_H = len(H_LIST)
                 colors = plt.cm.viridis(np.linspace(0, 1, n_H))
                 for H_index, H in enumerate(H_LIST):
-                    mses = get_mses(H, T, model_name, data, data_dir)
+                    mses = get_mses(H, T, model_name, data, data_dir, out_dir)
                     for i, feature in enumerate(['velocity', 'thrust', 'torqe']):
                         axes[i].plot(range(T),
                                      mses[:, i],
@@ -327,12 +352,6 @@ def analyse_how_far(tensorboard_save_dir: str = 'exp', level: str = 'overall', l
             c = len(list(iterate_exp_combinations(tensorboard_save_dir)))
             return c
 
-        cache_dir = join(out_dir, 'cache')
-        cache = dict()
-        cache_file = join(cache_dir, 'overall.pickle')
-        if os.path.exists(cache_file):
-            with open(cache_file, 'rb') as f:
-                cache = pickle.load(f)
         pbar = tqdm(total=count_total())
         for data, data_dir, model_name, model_dir in iterate_exp_combinations(tensorboard_save_dir):
             n_T = len(T_LIST)
@@ -343,14 +362,7 @@ def analyse_how_far(tensorboard_save_dir: str = 'exp', level: str = 'overall', l
                 n_H = len(H_LIST)
                 colors = plt.cm.viridis(np.linspace(0, 1, n_H))
                 for H_index, H in enumerate(H_LIST):
-                    cache_key = f'{model_name}_{data}_H{H}_T{T}'
-                    if cache_key in cache:
-                        mses = cache[cache_key]
-                    else:
-                        mses = get_mses(H, T, model_name, data, data_dir)
-                        cache[cache_key] = mses
-                        with open(cache_file, 'wb') as f:
-                            pickle.dump(cache, f)
+                    mses = get_mses(H, T, model_name, data, data_dir, out_dir)
                     for i, feature in enumerate(['velocity', 'thrust', 'torqe']):
                         if log_x:
                             axes[T_index, i].set_xscale('log')
@@ -388,14 +400,6 @@ def analyse_how_far(tensorboard_save_dir: str = 'exp', level: str = 'overall', l
 
     def do_overall():
 
-        cache_dir = join(out_dir, 'cache')
-        create_dirs_if_not_exist(cache_dir)
-        cache = dict()
-        cache_file = join(cache_dir, 'overall.pickle')
-        if os.path.exists(cache_file):
-            with open(cache_file, 'rb') as f:
-                cache = pickle.load(f)
-
         model_names = ['nlinear', 'nlinear-ni', 'dlinear', 'dlinear-ni', 'tide-wo-a', 'tide-w-a', 'gcformer', 'fdnet']
 
         n_rows = 2
@@ -414,14 +418,7 @@ def analyse_how_far(tensorboard_save_dir: str = 'exp', level: str = 'overall', l
                 for T_index, T in enumerate(T_LIST):
                     print(data, T)
                     for H_index, H in enumerate(H_LIST):
-                        cache_key = f'{model_name}_{data}_H{H}_T{T}'
-                        if cache_key in cache:
-                            mses = cache[cache_key]
-                        else:
-                            mses = get_mses(H, T, model_name, data, data_dir)
-                            cache[cache_key] = mses
-                            with open(cache_file, 'wb') as f:
-                                pickle.dump(cache, f)
+                        mses = get_mses(H, T, model_name, data, data_dir, out_dir)
 
                         for t in range(len(mses)):
                             n_channels = mses.shape[1]
@@ -469,6 +466,52 @@ def analyse_how_far(tensorboard_save_dir: str = 'exp', level: str = 'overall', l
     else:
         raise "invalid level"
 
+
+@app.command()
+def feature_rmse(tensorboard_save_dir: str = 'exp', out_dir='rmse_feature'):
+
+    df_cols = [
+        (['data1D']*3) + (['data2D']*3) + (['data3D']*3),
+        ['velocity', 'thrust','torque'] * 3
+    ]
+
+    model_names = ['nlinear', 'nlinear-ni', 'dlinear', 'dlinear-ni', 'tide-wo-a', 'tide-w-a', 'gcformer', 'fdnet']
+
+    for model_name in model_names:
+        col_values = []
+        for data in DATASETS:
+            model_dir = join(tensorboard_save_dir, model_name)
+            data_dir = join(model_dir, data)
+
+            all_mses = None
+
+            for T_index, T in enumerate(T_LIST):
+                n_H = len(H_LIST)
+                for H_index, H in enumerate(H_LIST):
+                    mses = get_mses(H, T, model_name, data, data_dir, 'how_far')
+                    mses = np.array(mses)
+                    if all_mses is None:
+                        all_mses = mses
+                    else:
+                        all_mses = np.vstack([all_mses, mses])
+
+            all_rmses = np.sqrt(mses)
+            avg_rmses = np.mean(all_rmses, axis=0)
+
+            assert len(avg_rmses) == 3
+            assert len(avg_rmses.shape) == 1
+
+            col_values.extend(list(avg_rmses))
+
+        col_values = ['%.3f' % e for e in col_values]
+        df_cols.append(col_values)
+
+    create_dirs_if_not_exist(out_dir)
+    out_path = join(out_dir, 'rmse.csv')
+
+    columns = ['dataset','feature'] + model_names
+    df = pd.DataFrame({columns[i]: df_cols[i] for i in range(len(columns))})
+    df.to_csv(out_path, index=False)
 
 if __name__ == '__main__':
     app()
