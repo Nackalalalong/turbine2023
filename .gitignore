@@ -6,8 +6,7 @@ tuning/
 exp
 exp_ori
 exp_aio
-reconstructed/values
-reconstructed/individuals
+reconstructed
 grad
 how_far
 raytune_logs
