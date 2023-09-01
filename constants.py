@@ -24,7 +24,7 @@ DATASETS = ['1d', '2d', '3d']
 
 # from tuning
 TUNE_RESULT = MappingProxyType({
-    'nlinear': {
+    'nlinear-i': {
         'lr': 0.000467785952240407,
         'batch_size': 64
     },
@@ -32,7 +32,7 @@ TUNE_RESULT = MappingProxyType({
         'lr': 0.00010606156361434318,
         'batch_size': 16,
     },
-    'dlinear': {
+    'dlinear-i': {
         'lr': 0.00036642856489512316,
         'batch_size': 32
     },

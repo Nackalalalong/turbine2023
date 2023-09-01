@@ -27,7 +27,7 @@ tensorboard_dir = os.path.abspath('./tuning')
 
 
 @app.command()
-def main(model: str = 'nlinear',
+def main(model: str = 'nlinear-i',
          max_epochs: int = 10,
          num_samples: int = 10,
          data: str = '3d'):

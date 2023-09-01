@@ -101,13 +101,13 @@ def build_model(model_name: str, data: str = None, **config_kwargs) -> ModelBeha
     elif model_name == 'nlinear-ni':
         config_kwargs['individual'] = False
 
-    elif model_name == 'nlinear':
+    elif model_name == 'nlinear-i':
         config_kwargs['individual'] = True
 
     elif model_name == 'dlinear-ni':
         config_kwargs['individual'] = False
 
-    elif model_name == 'dlinear':
+    elif model_name == 'dlinear-i':
         config_kwargs['individual'] = True
 
     config = ConfigClass(**config_kwargs)
@@ -116,7 +116,7 @@ def build_model(model_name: str, data: str = None, **config_kwargs) -> ModelBeha
     if model_name == 'nlinear-ni' or model_name == 'dlinear-ni':
         assert model.config.individual == False
         assert model.individual == False
-    elif model_name == 'nlinear' or model_name == 'dlinear':
+    elif model_name == 'nlinear-i' or model_name == 'dlinear-i':
         assert model.config.individual == True
         assert model.individual == True
     elif model_name == 'tide-w-a':
@@ -127,9 +127,9 @@ def build_model(model_name: str, data: str = None, **config_kwargs) -> ModelBeha
 
 def map_model_name(name: str) -> str:
     return {
-        'nlinear': 'NLinear-i',
+        'nlinear-i': 'NLinear-i',
         'nlinear-ni': 'NLinear-ni',
-        'dlinear': 'DLinear-i',
+        'dlinear-i': 'DLinear-i',
         'dlinear-ni': 'DLinear-ni',
         'tide-wo-a': 'TiDE-wo-a',
         'tide-w-a': 'TiDE-w-a',

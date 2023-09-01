@@ -400,7 +400,7 @@ def analyse_how_far(tensorboard_save_dir: str = 'exp', level: str = 'overall', l
 
     def do_overall():
 
-        model_names = ['nlinear', 'nlinear-ni', 'dlinear', 'dlinear-ni', 'tide-wo-a', 'tide-w-a', 'gcformer', 'fdnet']
+        model_names = ['nlinear-i', 'nlinear-ni', 'dlinear-i', 'dlinear-ni', 'tide-wo-a', 'tide-w-a', 'gcformer', 'fdnet']
 
         n_rows = 2
         n_cols = len(model_names) // n_rows
@@ -475,7 +475,7 @@ def feature_rmse(tensorboard_save_dir: str = 'exp', out_dir='rmse_feature'):
         ['velocity', 'thrust','torque'] * 3
     ]
 
-    model_names = ['nlinear', 'nlinear-ni', 'dlinear', 'dlinear-ni', 'tide-wo-a', 'tide-w-a', 'gcformer', 'fdnet']
+    model_names = ['nlinear-i', 'nlinear-ni', 'dlinear-i', 'dlinear-ni', 'tide-wo-a', 'tide-w-a', 'gcformer', 'fdnet']
 
     for model_name in model_names:
         col_values = []

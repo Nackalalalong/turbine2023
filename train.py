@@ -88,7 +88,7 @@ def train(model_name: str,
 
     if model_name == 'nlinear-ni' or model_name == 'dlinear-ni':
         assert config.individual == False
-    elif model_name == 'nlinear' or model_name == 'dlinear':
+    elif model_name == 'nlinear-i' or model_name == 'dlinear-i':
         assert config.individual == True
 
     if not (skip_done and done):
@@ -158,7 +158,7 @@ def translate_data(data: str):
 
 
 @app.command()
-def main(model: str = 'nlinear',
+def main(model: str = 'nlinear-i',
          data: str = '1d',
          seq_len: int = H_LIST[0],
          pred_len: int = T_LIST[0],
