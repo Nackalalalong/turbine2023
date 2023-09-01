@@ -192,7 +192,7 @@ def get_mses(H: int, T: int, model_name: str, data: str, data_dir: str, cache_di
 
 
 @app.command()
-def resconstruct(tensorbaord_save_dir: str = 'exp'):
+def reconstruct(tensorbaord_save_dir: str = 'exp'):
 
     def iterate_exp_combinations(tensorbaord_save_dir: str, data: str = 'all'):
 
