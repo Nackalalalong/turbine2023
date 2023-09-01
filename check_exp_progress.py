@@ -8,7 +8,7 @@ app = typer.Typer()
 
 
 @app.command()
-def main(dir: str = 'exp', max_epochs: int = 20):
+def main(dir: str = 'exp', epochs: int = 20):
 
     total_exps = len(H_LIST) * len(T_LIST) * len(DATASETS)
 
@@ -32,7 +32,7 @@ def main(dir: str = 'exp', max_epochs: int = 20):
                     values = read_event_values(event_filepath)
 
                     # there is an extra step 0
-                    if len(values) >= max_epochs + 1:
+                    if len(values) >= epochs + 1:
                         done_count += 1
                     else:
                         print('unfinished', event_filepath)

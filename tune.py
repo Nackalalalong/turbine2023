@@ -28,7 +28,7 @@ tensorboard_dir = os.path.abspath('./tuning')
 
 @app.command()
 def main(model: str = 'nlinear-i',
-         max_epochs: int = 10,
+         epochs: int = 10,
          num_samples: int = 10,
          data: str = '3d'):
 
@@ -51,7 +51,7 @@ def main(model: str = 'nlinear-i',
         metrics = {"val_loss": "val_loss", 'train_loss': 'train_loss'}
         tune_cb = _TuneReportCallback(metrics, on="validation_end")
 
-        trainer = L.Trainer(max_epochs=max_epochs,
+        trainer = L.Trainer(epochs=epochs,
                             callbacks=[tune_cb],
                             logger=logger,
                             enable_progress_bar=False)

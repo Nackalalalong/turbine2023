@@ -33,7 +33,7 @@ app = typer.Typer(pretty_exceptions_enable=False)
 
 def train(model_name: str,
           data: str,
-          max_epochs: int,
+          epochs: int,
           name: str,
           seq_len: int,
           pred_len: int,
@@ -57,7 +57,7 @@ def train(model_name: str,
             values = read_event_values(event_filepath)
 
             # there is an extra step 0
-            if len(values) >= max_epochs + 1:
+            if len(values) >= epochs + 1:
                 done = True
 
     eval_finish = False
@@ -67,7 +67,7 @@ def train(model_name: str,
 
     if (skip_done and done) and (not eval_after_train or eval_finish):
         return
-    
+
     config_kwargs = get_tune_result(model_name)
     batch_size = config_kwargs['batch_size']
     config_kwargs['seq_len'] = seq_len
@@ -75,11 +75,11 @@ def train(model_name: str,
     config_kwargs['n_channels'] = N_CHANNEL
 
     train_loader, val_loader, test_loader, _ = prepare_dataloaders(data=data,
-                                                                        batch_size=batch_size,
-                                                                        seq_len=seq_len,
-                                                                        pred_len=pred_len,
-                                                                        n_channels=N_CHANNEL,
-                                                                        cuda=load_data_to_cuda)
+                                                                   batch_size=batch_size,
+                                                                   seq_len=seq_len,
+                                                                   pred_len=pred_len,
+                                                                   n_channels=N_CHANNEL,
+                                                                   cuda=load_data_to_cuda)
 
     model = build_model(model_name=model_name, data=data, **config_kwargs)
     model.cuda()
@@ -107,7 +107,7 @@ def train(model_name: str,
                                               save_top_k=1)
 
         trainer = L.Trainer(
-            max_epochs=max_epochs,
+            epochs=epochs,
             callbacks=[checkpoint_callback],
             logger=logger,
             enable_progress_bar=enable_progress_bar,
@@ -152,9 +152,8 @@ def train(model_name: str,
 def translate_data(data: str):
     if data == 'all':
         return DATASETS
-    
-    return [data]
 
+    return [data]
 
 
 @app.command()
@@ -163,7 +162,7 @@ def main(model: str = 'nlinear-i',
          seq_len: int = H_LIST[0],
          pred_len: int = T_LIST[0],
          long_run: bool = False,
-         max_epochs: int = 20,
+         epochs: int = 20,
          parallel: bool = False,
          skip_done: bool = False,
          max_workers: int = 4,
@@ -171,7 +170,6 @@ def main(model: str = 'nlinear-i',
          eval_after_train: bool = False,
          log_grad: bool = False,
          load_data_to_cuda: bool = False):
-
 
     if long_run:
         dataset_names = translate_data(data)
@@ -185,7 +183,7 @@ def main(model: str = 'nlinear-i',
                 for dataset_name, H, T in args_list:
                     kwargs = dict(model_name=model,
                                   data=dataset_name,
-                                  max_epochs=max_epochs,
+                                  epochs=epochs,
                                   name=model,
                                   seq_len=H,
                                   pred_len=T,
@@ -216,7 +214,7 @@ def main(model: str = 'nlinear-i',
 
                 train(model,
                       data=dataset_name,
-                      max_epochs=max_epochs,
+                      epochs=epochs,
                       name=model,
                       seq_len=H,
                       pred_len=T,
@@ -234,7 +232,7 @@ def main(model: str = 'nlinear-i',
         for dataset_name in translate_data(data):
             train(model,
                   data=dataset_name,
-                  max_epochs=max_epochs,
+                  epochs=epochs,
                   name=model,
                   seq_len=seq_len,
                   pred_len=pred_len,
